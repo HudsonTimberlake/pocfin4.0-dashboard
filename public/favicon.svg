@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<rect width="1024" height="1024" fill="#FFFFFF"/>
+<mask id="rim" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024"><rect width="1024" height="1024" fill="#fff"/><circle cx="512" cy="280" r="72" fill="none" stroke="#000" stroke-width="20"/></mask><clipPath id="coin"><rect width="1024" height="335"/></clipPath><g clip-path="url(#coin)"><circle cx="512" cy="280" r="118" fill="#03C7AA" mask="url(#rim)"/></g><path d="M266 380 H758 V560 C758 730 655 818 512 818 C369 818 266 730 266 560 Z" fill="none" stroke="#03C7AA" stroke-width="50" stroke-linejoin="round"/><path d="M266 475 C360 475 432 495 512 542 C592 495 664 475 758 475" fill="none" stroke="#03C7AA" stroke-width="44" stroke-linecap="round"/>
+</svg>

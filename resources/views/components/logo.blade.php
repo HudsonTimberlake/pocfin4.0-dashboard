@@ -1,0 +1,2 @@
+@props(['size' => 34])
+<svg width="{{ $size }}" height="{{ $size }}" viewBox="0 0 34 34" aria-hidden="true" class="flex-none"><rect width="34" height="34" rx="10" fill="#FFFFFF"/><rect x=".75" y=".75" width="32.5" height="32.5" rx="9.25" fill="none" stroke="#E7EAEA" stroke-width="1.5"/><path d="M9 11h16v7.5a8 8 0 0 1-16 0z" fill="none" stroke="#027868" stroke-width="2.4" stroke-linejoin="round"/><circle cx="17" cy="11.5" r="4" fill="#03C7AA" stroke="#027868" stroke-width="1.6"/></svg>
