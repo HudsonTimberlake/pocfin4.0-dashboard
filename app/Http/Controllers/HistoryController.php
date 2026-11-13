@@ -29,12 +29,8 @@ class HistoryController extends Controller
             'page' => max(1, (int) $request->query('page', 1)),
         ]);
 
-        $data = $api->many([
-            'list' => ["/budgets/$b/".self::PATHS[$tab], $query],
-            'envelopes' => "/budgets/$b/envelopes",
-            'accounts' => "/budgets/$b/accounts",
-            'members' => "/budgets/$b/members",
-        ]);
+        // One call, to the dashboard's own endpoint (API: Dashboard/HistoryPageController).
+        $data = $api->json("/dashboard/budgets/$b/history", ['tab' => $tab, ...$query]);
 
         return view('pages.history', [
             'tab' => $tab,

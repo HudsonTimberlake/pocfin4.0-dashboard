@@ -11,7 +11,9 @@ use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use LogicException;
 
 /**
  * Every call to the PocFin API goes through here. The visitor's API token lives only in the
@@ -40,27 +42,37 @@ class Api
 
     public function get(string $path, array $query = []): Response
     {
-        return $this->send(fn () => $this->request()->get($path, $query));
+        $this->allow($path);
+
+        return $this->send(fn () => $this->request()->get($path, $query), 'GET '.$path);
     }
 
     public function post(string $path, array $data = [], bool $signedIn = true): Response
     {
-        return $this->send(fn () => $this->request($signedIn)->post($path, $data));
+        $this->allow($path);
+
+        return $this->send(fn () => $this->request($signedIn)->post($path, $data), 'POST '.$path);
     }
 
     public function put(string $path, array $data = []): Response
     {
-        return $this->send(fn () => $this->request()->put($path, $data));
+        $this->allow($path);
+
+        return $this->send(fn () => $this->request()->put($path, $data), 'PUT '.$path);
     }
 
     public function patch(string $path, array $data = []): Response
     {
-        return $this->send(fn () => $this->request()->patch($path, $data));
+        $this->allow($path);
+
+        return $this->send(fn () => $this->request()->patch($path, $data), 'PATCH '.$path);
     }
 
     public function delete(string $path, array $data = []): Response
     {
-        return $this->send(fn () => $this->request()->delete($path, $data));
+        $this->allow($path);
+
+        return $this->send(fn () => $this->request()->delete($path, $data), 'DELETE '.$path);
     }
 
     /** The JSON of a GET that must work. */
@@ -76,7 +88,13 @@ class Api
      */
     public function many(array $paths): array
     {
+        foreach ($paths as $path) {
+            $this->allow(is_array($path) ? $path[0] : $path);
+        }
+
         $headers = $this->request()->getOptions()['headers'] ?? [];
+
+        $started = hrtime(true);
 
         try {
             $responses = Http::pool(function (Pool $pool) use ($paths, $headers) {
@@ -89,6 +107,8 @@ class Api
         } catch (ConnectionException $e) {
             throw new ApiUnavailable($e->getMessage(), 0, $e);
         }
+
+        $this->timed('MANY ('.count($paths).') '.implode(', ', array_map(fn ($p) => is_array($p) ? $p[0] : $p, array_slice($paths, 0, 3))), $started, 'batch');
 
         $out = [];
 
@@ -136,13 +156,54 @@ class Api
         session(['api_token' => Crypt::encryptString($token)]);
     }
 
-    private function send(callable $call): Response
+    /**
+     * With DASHBOARD_LOG_TIMING=true, one line per API call (or batch) and how long it took, so a
+     * slow page shows whether it is the server or the calls. Paths only, never query words or bodies.
+     */
+    private function timed(string $label, int $started, string $status): void
     {
+        if (config('dashboard.log_timing')) {
+            Log::info('api', ['call' => $label, 'status' => $status, 'ms' => (int) round((hrtime(true) - $started) / 1e6)]);
+        }
+    }
+
+    /** Only paths in config('dashboard.api_paths') may be called, so what the dashboard uses is always one visible list. */
+    private function allow(string $path): void
+    {
+        $path = '/'.ltrim(parse_url($path, PHP_URL_PATH) ?: $path, '/');
+
+        foreach (config('dashboard.api_paths', []) as $patterns) {
+            foreach ($patterns as $pattern) {
+                if (fnmatch($pattern, $path)) {
+                    return;
+                }
+            }
+        }
+
+        $message = "The dashboard called $path, which isn't in config/dashboard.php api_paths.";
+
+        if (app()->isProduction()) {
+            Log::warning($message);
+
+            return;
+        }
+
+        throw new LogicException($message);
+    }
+
+    private function send(callable $call, string $label): Response
+    {
+        $started = hrtime(true);
+
         try {
             $response = $call();
         } catch (ConnectionException $e) {
+            $this->timed($label, $started, 'failed');
+
             throw new ApiUnavailable($e->getMessage(), 0, $e);
         }
+
+        $this->timed($label, $started, (string) $response->status());
 
         $this->check($response);
 

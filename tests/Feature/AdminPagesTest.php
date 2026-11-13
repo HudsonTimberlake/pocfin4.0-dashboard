@@ -17,7 +17,7 @@ class AdminPagesTest extends TestCase
     private function fakeUser(): void
     {
         Http::fake([
-            'api.test/api/budgets' => Http::response(self::budgets()),
+            'api.test/api/dashboard/budgets' => Http::response(self::budgets()),
             'api.test/api/admin/users/9' => Http::response([
                 'user' => ['id' => 9, 'name' => 'Sipho Dlamini', 'email' => 'sipho@example.com', 'joined_at' => '2026-10-31', 'verified' => false, 'plan' => 'premium', 'subscriber' => false, 'premium_budgets' => 1, 'budgets_count' => 1, 'app_platform' => 'ios', 'app_version' => '4.0.4', 'last_seen_at' => '2026-11-09T08:52:00+00:00', 'referral_code' => 'SIPHO7', 'invited_by' => ['id' => 1, 'name' => 'Hudson'], 'friends_invited' => 0, 'sessions' => 1],
                 'subscription' => ['active' => false, 'until' => null, 'renews' => false, 'store' => null, 'product' => null, 'period' => null, 'synced_at' => null, 'covered_budget_ids' => [], 'months_paid' => 0, 'since' => null, 'data' => []],
@@ -31,7 +31,7 @@ class AdminPagesTest extends TestCase
     public function test_the_users_list_with_search_kept_out_of_the_address(): void
     {
         Http::fake([
-            'api.test/api/budgets' => Http::response(self::budgets()),
+            'api.test/api/dashboard/budgets' => Http::response(self::budgets()),
             'api.test/api/admin/users*' => Http::response(['data' => [['id' => 9, 'name' => 'Sipho Dlamini', 'email' => 'sipho@example.com', 'joined_at' => '2026-10-31', 'verified' => true, 'plan' => 'subscriber', 'app_platform' => 'ios', 'app_version' => '4.0.4', 'last_seen_at' => null]], 'current_page' => 1, 'last_page' => 1, 'total' => 1, 'counts' => ['all' => 1284, 'subscribers' => 96, 'unverified' => 12]]),
         ]);
 
@@ -74,7 +74,7 @@ class AdminPagesTest extends TestCase
     public function test_support_inbox_and_reply(): void
     {
         Http::fake([
-            'api.test/api/budgets' => Http::response(self::budgets()),
+            'api.test/api/dashboard/budgets' => Http::response(self::budgets()),
             'api.test/api/admin/support/threads/4/messages' => Http::response(['id' => 4], 201),
             'api.test/api/admin/support/threads/4' => Http::response(['id' => 4, 'subject' => 'Account or Premium', 'status' => 'open', 'created_at' => '2026-11-09T07:14:00+00:00', 'user' => ['id' => 9, 'name' => 'Ayesha Patel', 'email' => 'a@example.com'],
                 'messages' => [['id' => 1, 'from_admin' => false, 'author' => 'Ayesha Patel', 'body' => 'My husband says our budget is paused.', 'device' => ['app_version' => '4.0.4', 'platform' => 'ios', 'os_version' => '26.1', 'device_model' => 'iPhone 15'], 'attachments' => [['id' => 70, 'mime' => 'image/png']], 'created_at' => '2026-11-09T07:14:00+00:00']],
@@ -94,7 +94,7 @@ class AdminPagesTest extends TestCase
     public function test_the_log(): void
     {
         Http::fake([
-            'api.test/api/budgets' => Http::response(self::budgets()),
+            'api.test/api/dashboard/budgets' => Http::response(self::budgets()),
             'api.test/api/admin/log*' => Http::response(['data' => [['id' => 1, 'action' => 'premium_months', 'admin' => 'Hudson', 'user' => ['id' => 9, 'name' => 'Sipho Dlamini', 'email' => 's@example.com'], 'details' => ['budget' => 'Sipho’s budget', 'until' => '2027-03-02'], 'note' => 'Sorry for the bug', 'created_at' => '2026-11-09T09:02:00+00:00']], 'current_page' => 1, 'last_page' => 1]),
         ]);
 

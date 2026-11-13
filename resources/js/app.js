@@ -56,3 +56,65 @@ if (lockForm) {
     ['mousemove', 'keydown', 'pointerdown', 'scroll', 'touchstart'].forEach((e) => window.addEventListener(e, reset, { passive: true }));
     reset();
 }
+
+// While the next page is on its way: a thin progress bar, the page dimmed and a repeat click on the
+// same link or form ignored, so people don't click again and again. Cleared when the page shows
+// again (back button) and after 20 seconds in case the answer was a download that stays on this page.
+const bar = document.createElement('div');
+bar.id = 'nav-progress';
+bar.setAttribute('aria-hidden', 'true');
+document.body.append(bar);
+
+let pending = null;
+let clearTimer;
+
+const startLoading = (key) => {
+    pending = key;
+    document.body.classList.add('is-loading');
+    document.getElementById('main')?.setAttribute('aria-busy', 'true');
+    clearTimeout(clearTimer);
+    clearTimer = setTimeout(stopLoading, 20000);
+};
+
+function stopLoading() {
+    pending = null;
+    document.body.classList.remove('is-loading');
+    document.getElementById('main')?.removeAttribute('aria-busy');
+}
+
+window.addEventListener('pageshow', stopLoading);
+
+document.addEventListener('click', (event) => {
+    const link = event.target.closest?.('a[href]');
+
+    if (! link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (link.target === '_blank' || link.hasAttribute('download') || link.dataset.noLoading !== undefined) return;
+
+    const url = new URL(link.href, location.href);
+
+    if (url.origin !== location.origin || (url.pathname === location.pathname && url.search === location.search && url.hash)) return;
+
+    if (pending === url.href) {
+        event.preventDefault();
+
+        return;
+    }
+
+    startLoading(url.href);
+});
+
+document.addEventListener('submit', (event) => {
+    const form = event.target;
+
+    if (event.defaultPrevented || form.target === '_blank' || form.dataset.noLoading !== undefined) return;
+
+    const key = `${form.method}:${form.action}`;
+
+    if (pending === key) {
+        event.preventDefault();
+
+        return;
+    }
+
+    startLoading(key);
+});

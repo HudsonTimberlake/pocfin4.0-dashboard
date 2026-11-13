@@ -14,16 +14,13 @@ class PremiumController extends Controller
     public function show(Api $api, Shell $shell): View
     {
         $budgets = $shell->budgets();
-        $data = $api->many([
-            'subscription' => '/subscription',
-            'events' => '/subscription/events',
-            ...collect($budgets)->mapWithKeys(fn ($b) => ['b'.$b['id'] => "/budgets/{$b['id']}/premium"])->all(),
-        ]);
+        // One call, to the dashboard's own endpoint (API: Dashboard/PremiumPageController).
+        $data = $api->json('/dashboard/premium');
 
         return view('pages.premium', [
             'subscription' => $data['subscription'] ?? [],
             'events' => $data['events'] ?? ['months_paid' => 0, 'data' => []],
-            'budgets' => collect($budgets)->map(fn ($b) => [...$b, 'premium_detail' => $data['b'.$b['id']] ?? null])->all(),
+            'budgets' => collect($budgets)->map(fn ($b) => [...$b, 'premium_detail' => $data['budgets'][$b['id']] ?? null])->all(),
         ]);
     }
 
@@ -35,6 +32,8 @@ class PremiumController extends Controller
         ], ['budget_ids.required' => 'Pick at least one budget.'])['budget_ids'];
 
         $api->ok($api->put('/subscription/budgets', ['budget_ids' => array_map('intval', $ids)]));
+
+        $request->session()->forget('budgets_cache');
 
         return back()->with('status', 'Saved. Everyone in those budgets has Premium.');
     }

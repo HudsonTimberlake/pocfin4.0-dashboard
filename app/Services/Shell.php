@@ -27,7 +27,23 @@ class Shell
     /** @return list<array> */
     public function budgets(): array
     {
-        return $this->budgets ??= array_values($this->api->json('/budgets'));
+        // Kept in the session for a minute, so most pages skip this call. Switching budget doesn't
+        // change the list; anything that changes budgets (a pause, a new one) shows within a minute.
+        return $this->budgets ??= $this->cached();
+    }
+
+    private function cached(): array
+    {
+        $cache = session('budgets_cache');
+
+        if (is_array($cache) && ($cache['at'] ?? 0) > time() - 60) {
+            return $cache['data'];
+        }
+
+        $data = array_values($this->api->json('/dashboard/budgets'));
+        session(['budgets_cache' => ['at' => time(), 'data' => $data]]);
+
+        return $data;
     }
 
     public function budget(): ?array

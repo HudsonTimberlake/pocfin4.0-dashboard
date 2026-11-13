@@ -23,8 +23,12 @@ The web view of PocFin: people sign in with their app account and see their budg
 - Receipts and support screenshots are streamed through this app, so the browser never needs the API token.
 - Copy: SA/UK English, calm, "It all has a place", never "every rand has a job".
 
+## API calls
+- Every page makes **one** call to its own endpoint under the API's `/dashboard/*` (API: `app/Http/Controllers/Dashboard/`; see "Dashboard endpoints" in its CLAUDE.md). The only paths this app may call are listed in `config/dashboard.php` `api_paths`; `Api` refuses any other (an exception outside production, a log line in production). To add a call: add a dashboard endpoint (with its contract test) first, never change an app endpoint for the dashboard.
+- Slow page? Set `DASHBOARD_LOG_TIMING=true` in `.env` (and `php artisan config:clear`): `storage/logs/laravel.log` then gets one `api` line per call with its milliseconds. Turn it off again afterwards.
+
 ## Tests
-`php artisan test` (29 tests, the API faked with `Http::fake`, `Http::preventStrayRequests`). Build assets with `npm run build`.
+`php artisan test` (32 tests, the API faked with `Http::fake`, `Http::preventStrayRequests`). Build assets with `npm run build`.
 
 ## Server
 A Laravel app on the `dashboard.pocfin.com` subdomain (HostAfrica), document root `public/`. `.env`: `APP_URL=https://dashboard.pocfin.com`, `APP_ENV=production`, `APP_DEBUG=false`, `POCFIN_API_URL=https://api.pocfin.com/api`, `DASHBOARD_KEY` (the same value as the API's), `SESSION_SECURE_COOKIE=true`, `SESSION_DRIVER=file`, `SESSION_LIFETIME=720`, `SESSION_ENCRYPT=true`, and leave `SESSION_DOMAIN` empty (the cookie stays on the subdomain).

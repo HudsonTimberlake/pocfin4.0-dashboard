@@ -47,6 +47,7 @@ class AuthController extends Controller
         $this->api->ok($response);
 
         $request->session()->regenerate();
+        $request->session()->forget('budgets_cache');
         Api::storeToken($response->json('token'));
         $user = $response->json('user');
         $request->session()->put([

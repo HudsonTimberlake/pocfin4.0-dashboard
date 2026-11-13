@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Services\Api;
 use App\Services\Shell;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 
 /** D5 Accounts: every account you can see; for an investment account its holdings, returns and purposes. */
@@ -14,45 +13,16 @@ class AccountsController extends Controller
     public function show(Request $request, Api $api, Shell $shell): View
     {
         $b = $shell->budgetId();
-        $base = $api->many([
-            'accounts' => "/budgets/$b/accounts",
-            'summary' => "/budgets/$b/summary",
-            'members' => "/budgets/$b/members",
-        ]);
-        $accounts = collect($base['accounts'] ?? []);
-        $selected = $accounts->firstWhere('id', (int) $request->query('account'))
-            ?? $accounts->firstWhere('type', 'investment') ?? $accounts->first();
-
         $period = in_array($request->query('period'), ['cycle', 'ytd', 'all'], true) ? $request->query('period') : 'ytd';
-        $today = Carbon::now(session('timezone', 'Africa/Johannesburg'))->toDateString();
-        $from = match ($period) {
-            'cycle' => $base['summary']['cycle']['start'] ?? null,
-            'ytd' => substr($today, 0, 4).'-01-01',
-            'all' => null,
-        };
+        // One call, to the dashboard's own endpoint (API: Dashboard/AccountsPageController).
+        $page = $api->json("/dashboard/budgets/$b/accounts", array_filter(['account' => $request->query('account'), 'period' => $period]));
 
-        $holdings = $returns = $purposes = $moves = [];
-
-        if ($selected) {
-            $a = $selected['id'];
-            $more = $api->many([
-                'holdings' => $selected['type'] === 'investment' ? "/budgets/$b/accounts/$a/holdings" : "/budgets/$b/accounts",
-                'purposes' => $selected['type'] === 'investment' ? "/budgets/$b/purposes" : "/budgets/$b/accounts",
-                'allocations' => "/budgets/$b/accounts/$a/allocations",
-                'transactions' => "/budgets/$b/accounts/$a/transactions",
-                'transfers' => ["/budgets/$b/transfers", ['account_id' => $a, 'per_page' => 10]],
-            ]);
-
-            if ($selected['type'] === 'investment') {
-                $holdings = $more['holdings'] ?? [];
-                $purposes = $more['purposes'] ?? [];
-                $returns = collect($holdings)->isEmpty() ? [] : $api->many(collect($holdings)->mapWithKeys(fn ($h) => [
-                    'h'.$h['id'] => ["/budgets/$b/accounts/$a/holdings/{$h['id']}/returns", array_filter(['from' => $from, 'to' => $today])],
-                ])->all());
-            }
-
-            $moves = $this->moves($a, $more, collect($base['members'] ?? [])->keyBy('id'));
-        }
+        $accounts = collect($page['accounts'] ?? []);
+        $selected = $accounts->firstWhere('id', $page['selected_id'] ?? null);
+        $holdings = $page['holdings'] ?? [];
+        $returns = $page['returns'] ?? [];
+        $purposes = $page['purposes'] ?? [];
+        $moves = $selected ? $this->moves($selected['id'], $page, collect($page['members'] ?? [])->keyBy('id')) : [];
 
         return view('pages.accounts', [
             'accounts' => $accounts->values()->all(),
@@ -62,7 +32,7 @@ class AccountsController extends Controller
             'purposes' => $purposes,
             'moves' => $moves,
             'period' => $period,
-            'summary' => $base['summary'] ?? [],
+            'summary' => $page['summary'] ?? [],
         ]);
     }
 

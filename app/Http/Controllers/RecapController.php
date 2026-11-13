@@ -13,17 +13,15 @@ class RecapController extends Controller
     public function show(Request $request, Api $api, Shell $shell): View
     {
         $b = $shell->budgetId();
-        $list = $api->json("/budgets/$b/recaps");
-        $cycles = $list['cycles'] ?? [];
-        $start = collect($cycles)->firstWhere('start', $request->query('cycle'))['start'] ?? ($cycles[0]['start'] ?? null);
-        $recap = $start ? $api->get("/budgets/$b/recaps/$start") : null;
+        // One call, to the dashboard's own endpoint (API: Dashboard/RecapsPageController).
+        $page = $api->json("/dashboard/budgets/$b/recaps", array_filter(['cycle' => $request->query('cycle')]));
 
         return view('pages.recaps', [
-            'cycles' => $cycles,
-            'lockedCount' => $list['locked_count'] ?? 0,
-            'start' => $start,
-            'recap' => $recap?->successful() ? $recap->json() : null,
-            'premiumRequired' => $recap?->status() === 403,
+            'cycles' => $page['cycles'] ?? [],
+            'lockedCount' => $page['locked_count'] ?? 0,
+            'start' => $page['start'] ?? null,
+            'recap' => $page['recap'] ?? null,
+            'premiumRequired' => $page['premium_required'] ?? false,
         ]);
     }
 }

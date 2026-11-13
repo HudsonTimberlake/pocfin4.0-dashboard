@@ -42,7 +42,7 @@
                         <thead><tr><th scope="col">Holding</th><th scope="col" class="r">Value</th><th scope="col" class="r">Put in</th><th scope="col" class="r">Gain</th><th scope="col" class="r">Simple return</th><th scope="col" class="r">Time-weighted</th></tr></thead>
                         <tbody>
                             @forelse ($holdings as $h)
-                                @php $r = $returns['h'.$h['id']] ?? null; @endphp
+                                @php $r = $returns[$h['id']] ?? null; @endphp
                                 <tr>
                                     <td><span class="font-extrabold">{{ $h['name'] }}</span><div class="text-[12.5px] font-semibold text-slate">{{ collect($h['positions'] ?? [])->pluck('purpose')->join(', ') }}@if ($h['last_valuation']) · valued {{ day($h['last_valuation']['date'], false) }}@endif</div></td>
                                     <td class="r font-extrabold">{{ money($h['value']) }}</td>
