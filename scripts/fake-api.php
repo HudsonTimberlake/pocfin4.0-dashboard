@@ -567,6 +567,39 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/automatic$#', $path)) {
         'envelopes' => $envelopes, 'accounts' => array_values(array_filter($accounts, fn ($a) => $a['type'] !== 'investment')), 'members' => $overview['members']]);
 }
 
+// Analytics (W15): this month from the sample's figures; trends and insights as the boards show them.
+if (preg_match('#^/api/dashboard/budgets/(\d+)/analytics$#', $path, $m)) {
+    $tab = $_GET['tab'] ?? 'month';
+    if ($tab !== 'month' && (int) $m[1] === 4) { return $answer(['tab' => $tab, 'premium_required' => true, 'month' => null, 'trends' => null, 'insights' => null]); }
+    $usual = [1 => 416000, 2 => 105000, 3 => 145000, 4 => 79500, 5 => 850000, 6 => 100000, 7 => 20000, 8 => 30000];
+    $refunds = 0; foreach ($state['expenses'] as $x) { if ($x['refund']) { $refunds += $x['amount']; } }
+    $spentNet = array_sum(array_column($state['envelopes'], 'spent')) - $refunds;
+    $kept = 2285000 - $spentNet;
+    $asked = $_GET['date'] ?? date('Y-m-d');
+    $current = substr($asked, 0, 7) === date('Y-m');
+    $start = date('Y-m-01', strtotime($asked)); $end = date('Y-m-t', strtotime($asked));
+    $month = [
+        'cycle' => ['start' => $start, 'end' => $end, 'start_day' => 1], 'current' => $current,
+        'days' => ['total' => (int) date('t', strtotime($asked)), 'elapsed' => $current ? (int) date('j') : (int) date('t', strtotime($asked))],
+        'income' => '22850.00', 'spent' => $s($spentNet + $refunds), 'refunded' => $s($refunds), 'spent_net' => $s($spentNet),
+        'kept' => $s($current ? $kept : 245000), 'kept_percent' => (int) round(($current ? $kept : 245000) / 2285000 * 100), 'moved_to_accounts' => '2000.00',
+        'pace' => $current ? ['kept' => '3900.00', 'spent' => '18950.00'] : null, 'previous_kept' => '2450.00', 'transactions' => 31,
+        'envelopes' => array_map(fn ($e) => ['id' => $e['id'], 'name' => $e['name'], 'kind' => $e['kind'], 'budgeted_amount' => $s($e['target']), 'spent' => $s($current ? $e['spent'] : (int) round(($usual[$e['id']] ?? 0) * 0.95)), 'usual' => isset($usual[$e['id']]) ? $s($usual[$e['id']]) : null, 'balance' => $s($e['balance'])], array_values(array_filter($state['envelopes'], fn ($e) => empty($e['archived'])))),
+        'accounts' => [['id' => 12, 'name' => 'Car licence and tax', 'spent' => '0.00']],
+    ];
+    $tm = fn ($n, $spent, $moved) => ['start' => date('Y-m-01', strtotime("-$n months")), 'end' => date('Y-m-t', strtotime("-$n months")), 'current' => $n === 0, 'income' => '22850.00', 'spent_net' => $s($spent), 'kept' => $s(2285000 - $spent), 'kept_percent' => (int) round((2285000 - $spent) / 2285000 * 100), 'moved_to_accounts' => $s($moved)];
+    $trends = ['ready' => true, 'months' => [$tm(5, 2130000, 150000), $tm(4, 2095000, 150000), $tm(3, 2210000, 100000), $tm(2, 1980000, 250000), $tm(1, 2040000, 200000), $tm(0, $spentNet, 200000)],
+        'average_kept_percent' => 9, 'months_kept' => 6, 'months_counted' => 6,
+        'rhythm' => ['months' => 3, 'weeks' => ['Week 1', 'Week 2', 'Week 3', 'Week 4'], 'week_shares' => [0.32, 0.21, 0.26, 0.21], 'weekdays' => ['820.00', '410.00', '380.00', '450.00', '690.00', '1320.00', '1710.00'], 'busiest_weekday' => ['day' => 6, 'envelope' => 'Groceries'], 'small' => ['under' => '100.00', 'count' => 14, 'amount' => '612.00', 'envelope' => 'Eating out']]];
+    $insights = ['ready' => true, 'months_of_data' => 6, 'months_needed' => 3, 'cards' => [
+        ['kind' => 'over_plan', 'key' => 'over-2', 'envelope_id' => 2, 'name' => 'Eating out', 'budgeted' => $s($byId[2]['target']), 'usual' => '1450.00', 'suggested' => '1450.00', 'months' => 3],
+        ['kind' => 'idle', 'key' => 'idle-7', 'envelope_id' => 7, 'name' => 'Clothing', 'amount' => '950.00', 'months' => 3],
+        ['kind' => 'repeat', 'key' => 'repeat-fibre', 'note' => 'Fibre', 'amount' => '1000.00', 'day' => 3, 'envelope_id' => 6, 'account_id' => null, 'months' => 3],
+        ['kind' => 'spare', 'key' => 'spare', 'amount' => '850.00', 'planned' => '22000.00', 'income' => '22850.00', 'months' => 3],
+    ]];
+    return $answer(['tab' => $tab, 'premium_required' => false, 'month' => $tab === 'month' ? $month : null, 'trends' => $tab === 'trends' ? $trends : null, 'insights' => $tab === 'insights' ? $insights : null]);
+}
+
 // Goals (W13): the boards' four goals and two past ones, shaped like the API's goal report.
 $m0 = date('Y-m-01');
 $mAgo = fn (int $n) => date('Y-m-01', strtotime("$m0 -$n months"));

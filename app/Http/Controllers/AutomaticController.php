@@ -36,6 +36,8 @@ class AutomaticController extends Controller
             'envelopes' => array_values(array_map($place, array_filter($page['envelopes'] ?? [], fn ($e) => ! ($e['archived'] ?? false)))),
             'accounts' => array_map(fn ($a) => [...$place($a), 'type' => $a['type']], $page['accounts'] ?? []),
             'members' => array_map(fn ($m) => ['id' => $m['id'], 'name' => $m['name']], $page['members'] ?? []),
+            // From an Insight's Make it automatic: New automatic opens, filled in from this browser tab.
+            'start_new' => $request->boolean('new'),
         ]);
     }
 

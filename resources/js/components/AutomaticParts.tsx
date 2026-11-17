@@ -357,14 +357,26 @@ function ModePick({ value, set }: { value: 'auto' | 'approve'; set: (v: 'auto' |
  * W14b New automatic: spend or move, from, to, amount, monthly or weekly and the day, Automatic or
  * Ask me first, and one plain sentence saying what will happen. Investment accounts can't be used.
  */
+/** What an Insight's "Make it automatic" left in this browser tab (read once, then forgotten). */
+function takePrefill(): { name?: string; amount?: string; day?: number; envelope_id?: number | null; account_id?: number | null } {
+    try {
+        const raw = sessionStorage.getItem('pocfin-automatic-prefill');
+        sessionStorage.removeItem('pocfin-automatic-prefill');
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
 export function NewAutomatic({ envelopes, accounts, onClose }: { envelopes: Choice[]; accounts: Choice[]; onClose: () => void }) {
+    const [pre] = useState(takePrefill);
     const [kind, setKind] = useState<'expense' | 'transfer'>('expense');
-    const [name, setName] = useState('');
-    const [from, setFrom] = useState(envelopes[0] ? `e:${envelopes[0].id}` : '');
+    const [name, setName] = useState(pre.name ?? '');
+    const [from, setFrom] = useState(pre.envelope_id ? `e:${pre.envelope_id}` : envelopes[0] ? `e:${envelopes[0].id}` : '');
     const [to, setTo] = useState('');
-    const [typed, setTyped] = useState('');
+    const [typed, setTyped] = useState(pre.amount ?? '');
     const [repeat, setRepeat] = useState<'monthly' | 'weekly'>('monthly');
-    const [day, setDay] = useState('25');
+    const [day, setDay] = useState(String(pre.day ?? 25));
     const [mode, setMode] = useState<'auto' | 'approve'>('auto');
     const [starts, setStarts] = useState(ymd());
     const [errors, setErrors] = useState<Record<string, string>>({});

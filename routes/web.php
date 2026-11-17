@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AccountsController;
 use App\Http\Controllers\AllocateController;
+use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AutomaticController;
 use App\Http\Controllers\Admin\LogController as AdminLogController;
 use App\Http\Controllers\Admin\SupportController as AdminSupportController;
@@ -67,6 +68,8 @@ Route::middleware(['signed.in', 'idle'])->group(function () {
     Route::put('/goals/{goal}', [GoalsController::class, 'update'])->whereNumber('goal');
     Route::delete('/goals/{goal}', [GoalsController::class, 'destroy'])->whereNumber('goal');
     Route::post('/goals/{goal}/{action}', [GoalsController::class, 'act'])->whereNumber('goal')->whereIn('action', ['finish', 'snooze', 'reviewed']);
+    // Version 2 Analytics (W15).
+    Route::get('/analytics', [AnalyticsController::class, 'show'])->name('analytics');
     // Version 2 Automatic (W14).
     Route::get('/automatic', [AutomaticController::class, 'show'])->name('automatic');
     Route::post('/automatic', [AutomaticController::class, 'store']);

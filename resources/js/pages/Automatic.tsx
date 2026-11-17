@@ -15,6 +15,7 @@ type Props = {
     envelopes: Choice[];
     accounts: Choice[];
     members: { id: number; name: string }[];
+    start_new?: boolean;
 };
 
 /**
@@ -25,7 +26,7 @@ type Props = {
 export default function Automatic(p: Props) {
     const reduced = useReducedMotion();
     const { openAdd } = useApp();
-    const [panel, setPanel] = useState<number | 'new' | null>(p.selected?.id ?? null);
+    const [panel, setPanel] = useState<number | 'new' | null>(p.selected?.id ?? (p.start_new ? 'new' : null));
     useEffect(() => setPanel((cur) => (p.selected ? p.selected.id : cur === 'new' ? cur : null)), [p.selected]);
     const open = typeof panel === 'number' ? (p.selected?.id === panel ? p.selected : p.items.find((i) => i.id === panel)) : undefined;
 
