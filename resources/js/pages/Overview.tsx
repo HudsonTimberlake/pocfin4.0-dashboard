@@ -151,6 +151,7 @@ export default function Overview(p: Props) {
             tone: 'teal',
             title: `${formatMoney(s.unallocated)} ready to allocate`,
             sub: p.left_from ? `From ${p.left_from.note || 'income'}, ${dayLabel(p.left_from.date)}` : 'Give it a place in your envelopes',
+            action: { label: 'Allocate', run: () => router.visit('/allocate') },
         });
     }
     for (const o of s.overspent ?? []) {

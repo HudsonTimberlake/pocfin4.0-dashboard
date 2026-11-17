@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AccountsController;
+use App\Http\Controllers\AllocateController;
 use App\Http\Controllers\Admin\LogController as AdminLogController;
 use App\Http\Controllers\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
@@ -52,6 +53,10 @@ Route::middleware(['signed.in', 'idle'])->group(function () {
     Route::put('/envelopes/order', [EnvelopeController::class, 'reorder'])->name('envelopes.order');
     Route::patch('/envelopes/{envelope}', [EnvelopeController::class, 'update'])->whereNumber('envelope');
     Route::delete('/envelopes/{envelope}', [EnvelopeController::class, 'destroy'])->whereNumber('envelope');
+    // Version 2 Allocate (W8): staged in the browser, sent together.
+    Route::get('/allocate', [AllocateController::class, 'show'])->name('allocate');
+    Route::post('/allocate/{deposit}', [AllocateController::class, 'store'])->whereNumber('deposit');
+    Route::patch('/allocate/mode', [AllocateController::class, 'mode']);
     Route::get('/history', [HistoryController::class, 'show'])->name('history');
     // Search words and filters are posted and kept in the session, never put in the address.
     Route::post('/history', [HistoryController::class, 'filter']);

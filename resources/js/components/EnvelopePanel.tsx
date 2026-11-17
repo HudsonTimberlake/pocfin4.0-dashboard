@@ -26,11 +26,12 @@ const KIND_NOTE = {
  * amount and kind, this month's activity, then Save changes, Archive and Delete (the app's rules:
  * delete only at R0.00, and it can't be undone).
  */
-export default function EnvelopePanel({ e, activity, loading, shared, onClose, onArchive }: {
+export default function EnvelopePanel({ e, activity, loading, shared, canAllocate, onClose, onArchive }: {
     e: BudgetEnvelope;
     activity: Activity[];
     loading: boolean;
     shared: boolean;
+    canAllocate: boolean;
     onClose: () => void;
     onArchive: () => void;
 }) {
@@ -86,6 +87,8 @@ export default function EnvelopePanel({ e, activity, loading, shared, onClose, o
         { label: 'Spend', icon: 'plus', run: () => add('spent'), primary: true },
         { label: 'Move', icon: 'move', run: () => add('move') },
         { label: 'Refund', icon: 'refund', run: () => add('refund') },
+        // With money ready: Allocate opens with this envelope's amount box open.
+        ...(canAllocate ? [{ label: 'Allocate', icon: 'allocate' as IconName, run: () => router.visit(`/allocate?envelope=${e.id}`) }] : []),
     ];
 
     return (
@@ -120,7 +123,7 @@ export default function EnvelopePanel({ e, activity, loading, shared, onClose, o
                 </dl>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className={`grid gap-2 ${actions.length === 4 ? 'grid-cols-2' : 'grid-cols-3'}`}>
                 {actions.map((a) => (
                     <button
                         key={a.label}

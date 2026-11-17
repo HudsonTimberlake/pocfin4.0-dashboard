@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState, type DragEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import Bar from '@/components/Bar';
 import EnvelopeIcon from '@/components/EnvelopeIcon';
 import EnvelopePanel, { type Activity } from '@/components/EnvelopePanel';
@@ -207,6 +207,10 @@ export default function Budget(p: Props) {
                             {p.left_from ? ` · from ${p.left_from.note || 'income'}, ${dayLabel(p.left_from.date)}` : ''}
                             {short ? ` · ${short} ${short === 1 ? 'envelope is' : 'envelopes are'} short of their monthly amount` : ''}
                         </p>
+                        <span className="flex-1" />
+                        <Link href="/allocate" className="flex h-10 flex-none items-center rounded-xl bg-mint px-4 text-[14.5px] font-extrabold text-on-mint transition-transform active:scale-[0.97]">
+                            Allocate
+                        </Link>
                     </div>
                 ) : null}
 
@@ -417,7 +421,7 @@ export default function Budget(p: Props) {
                                     transition={{ duration: 0.28, ease: ARRIVE }}
                                     className="fixed inset-y-0 right-0 z-50 w-[min(420px,100vw)] overflow-y-auto bg-canvas p-3 xl:sticky xl:top-5 xl:z-auto xl:max-h-[calc(100vh-40px)] xl:w-[380px] xl:flex-none xl:rounded-[24px] xl:p-0"
                                 >
-                                    <EnvelopePanel key={open.id} e={open} activity={p.activity} loading={p.open_id !== open.id} shared={p.shared} onClose={closePanel} onArchive={() => archive(open)} />
+                                    <EnvelopePanel key={open.id} e={open} activity={p.activity} loading={p.open_id !== open.id} shared={p.shared} canAllocate={ready} onClose={closePanel} onArchive={() => archive(open)} />
                                 </motion.aside>
                             </>
                         ) : null}

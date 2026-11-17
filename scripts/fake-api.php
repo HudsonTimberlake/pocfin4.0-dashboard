@@ -27,6 +27,7 @@ function fresh(callable $day): array
     return [
         'seq' => 100,
         'unallocated' => 125000,
+        'fill_mode' => 'top_up',
         'refunded' => 34900,
         'envelopes' => [
             $env(1, 'Groceries', 149135, 600000, 450865), $env(2, 'Eating out', -18040, 120000, 138040), $env(3, 'Petrol', 62000, 200000, 138000),
@@ -163,6 +164,32 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/envelopes/(\d+)$#', $path, $m)) {
     return $answer(['id' => (int) $m[2]]);
 }
 
+// Allocate (W8): every staged line from the Salary, all or nothing, like the real API.
+if (preg_match('#^/api/dashboard/budgets/(\d+)/deposits/(\d+)/allocations$#', $path) && $method === 'POST') {
+    $left = $state['unallocated'];
+    foreach (array_values($body['items'] ?? []) as $i => $item) {
+        $a = $c($item['amount'] ?? '0');
+        if ($a <= 0) { return $fail("items.$i.amount", 'Enter an amount greater than zero.'); }
+        if ($a > $left) { return $fail("items.$i.amount", 'This income has '.$s($left).' left to allocate, but you asked for '.$s($a).'.'); }
+        $left -= $a;
+    }
+    foreach ($body['items'] as $item) {
+        $a = $c($item['amount']);
+        foreach ($state['envelopes'] as &$e) { if ($e['id'] === (int) ($item['envelope_id'] ?? 0)) { $e['balance'] += $a; $e['alloc'] = ($e['alloc'] ?? 0) + $a; } }
+        unset($e);
+        foreach ($state['accounts'] as &$ac) { if ($ac['id'] === (int) ($item['account_id'] ?? 0)) { $ac['balance'] += $a; } }
+        unset($ac);
+        if (! empty($item['account_id']) && (int) $item['account_id'] === 11) { $state['goal_paid'] = true; }
+    }
+    $state['unallocated'] = $left;
+    $save();
+    return $answer(['deposit' => ['id' => 40, 'amount' => '22850.00', 'allocated' => $s(2285000 - $left), 'unallocated' => $s($left), 'date' => date('Y-m-01'), 'note' => 'Salary', 'created_by' => 7], 'saved' => count($body['items'])], 201);
+}
+if ($path === '/api/user' && $method === 'PATCH') {
+    if (isset($body['fill_mode'])) { $state['fill_mode'] = $body['fill_mode']; $save(); }
+    return $answer(['id' => 7, 'name' => 'Hudson', 'fill_mode' => $state['fill_mode']]);
+}
+
 usort($state['envelopes'], fn ($a, $b) => ($a['sort'] ?? $a['id']) <=> ($b['sort'] ?? $b['id']));
 $envelopes = array_map(fn ($e) => ['id' => $e['id'], 'name' => $e['name'], 'icon' => $e['icon'] ?? null, 'budgeted_amount' => $s($e['target']), 'kind' => $e['kind'], 'balance' => $s($e['balance']), 'sort_order' => $e['sort'] ?? $e['id'], 'archived' => (bool) ($e['archived'] ?? false), 'built_up_snoozed_through' => null], $state['envelopes']);
 $left = array_sum(array_column($state['envelopes'], 'balance'));
@@ -191,6 +218,21 @@ $overview = [
     'goals' => [['id' => 1, 'name' => 'Emergency fund', 'status' => 'active', 'state' => 'waiting'], ['id' => 2, 'name' => 'Tax-free top-up', 'status' => 'active', 'state' => 'on_track'], ['id' => 3, 'name' => 'Retire at 65', 'status' => 'active', 'state' => 'on_track'], ['id' => 4, 'name' => 'Car deposit', 'status' => 'active', 'state' => 'on_track']],
     'automatic_ready' => [['id' => 1, 'name' => 'Netflix', 'amount' => '199.00']],
 ];
+
+if (preg_match('#^/api/dashboard/budgets/(\d+)/allocate$#', $path)) {
+    $salary = ['id' => 40, 'amount' => '22850.00', 'allocated' => $s(2285000 - $state['unallocated']), 'unallocated' => $s($state['unallocated']), 'date' => date('Y-m-01'), 'note' => 'Salary', 'created_by' => 7];
+    $asked = (int) ($_GET['deposit'] ?? 0);
+    if ($asked && $asked !== 40) { return $answer(['message' => 'Not found.'], 404); }
+    return $answer([
+        'deposit' => $state['unallocated'] > 0 || $asked ? $salary : null,
+        'waiting' => $state['unallocated'] > 0 ? [$salary] : [],
+        'unallocated' => $s($state['unallocated']),
+        'envelopes' => array_values(array_filter($envelopes, fn ($e) => ! $e['archived'])),
+        'accounts' => $accounts,
+        'goals' => empty($state['goal_paid']) ? [['id' => 1, 'name' => 'Emergency fund', 'status' => 'active', 'remind_on_payday' => true, 'account_id' => 11, 'purpose_id' => null, 'this_cycle' => ['start' => date('Y-m-01'), 'end' => date('Y-m-t'), 'needed' => '500.00', 'in' => '0.00', 'left' => '500.00', 'status' => 'waiting']]] : [],
+        'fill_mode' => $state['fill_mode'] ?? 'top_up',
+    ]);
+}
 
 // The Budget page: live envelopes with this month's figures, archived ones, and one envelope's activity.
 if (preg_match('#^/api/dashboard/budgets/(\d+)/budget$#', $path)) {
