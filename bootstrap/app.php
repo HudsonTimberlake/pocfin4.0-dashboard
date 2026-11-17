@@ -4,6 +4,7 @@ use App\Exceptions\AdminCodeRequired;
 use App\Exceptions\ApiUnavailable;
 use App\Exceptions\SignedOut;
 use App\Http\Middleware\AdminOnly;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IdleLock;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SignedIn;
@@ -19,7 +20,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(append: [SecurityHeaders::class]);
+        $middleware->web(append: [HandleInertiaRequests::class, SecurityHeaders::class]);
+        // The appearance choice is set by the page itself and holds nothing private.
+        $middleware->encryptCookies(except: ['appearance']);
         $middleware->alias([
             'signed.in' => SignedIn::class,
             'idle' => IdleLock::class,
@@ -33,12 +36,21 @@ return Application::configure(basePath: dirname(__DIR__))
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return redirect()->route('sign-in')->with('status', 'You’ve been signed out. Sign in again to carry on.');
+            session()->flash('status', 'You’ve been signed out. Sign in again to carry on.');
+
+            return leave(route('sign-in'));
         });
         $exceptions->render(function (AdminCodeRequired $e, Request $request) {
             $request->session()->put('pending_code', 'admin');
 
-            return redirect()->route('code');
+            return leave(route('code'));
         });
-        $exceptions->render(fn (ApiUnavailable $e) => response()->view('errors.api', [], 503));
+        $exceptions->render(function (ApiUnavailable $e, Request $request) {
+            // A React page's visit: load the address again in full, which then shows the Blade error page.
+            if ($request->header('X-Inertia') && $request->isMethod('GET')) {
+                return \Inertia\Inertia::location($request->fullUrl());
+            }
+
+            return response()->view('errors.api', [], 503);
+        });
     })->create();

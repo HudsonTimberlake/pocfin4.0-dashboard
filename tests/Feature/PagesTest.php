@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
 /** Every page renders from the API's real response shapes, and shows money as rand. */
@@ -90,17 +91,40 @@ class PagesTest extends TestCase
     {
         $this->fakeBudget();
 
+        // Version 2: the page is React (Inertia). The server hands it the figures as the API sent them.
         $this->signedIn()->get('/')->assertOk()
-            ->assertSee('R8,420<span class="cents">.50</span>', false)
-            ->assertSee('R1,250')
-            ->assertSee('From Salary')
-            ->assertSee('6 weeks in a row')
-            ->assertSee('Eating out is over by R180.40')
-            ->assertSee('+R349.00')
-            ->assertSee('R196,610.62')
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('Overview')
+                ->where('summary.left_to_spend', '8420.50')
+                ->where('summary.unallocated', '1250.00')
+                ->where('left_from.note', 'Salary')
+                ->where('streak.current', 6)
+                ->where('summary.overspent.0.name', 'Eating out')
+                ->where('expenses.1.refund', true)
+                ->where('accounts.1.gain', '12410.55')
+                ->where('budgets.0.initials', 'OH')
+                ->where('me.isAdmin', false)
+                ->has('daysLeft')
+                ->missing('token'))
             ->assertDontSee('1|secret-token');
 
         Http::assertSent(fn (Request $r) => $r->hasHeader('Authorization', 'Bearer 1|secret-token') && $r->hasHeader('X-Timezone', 'Africa/Johannesburg'));
+    }
+
+    public function test_a_react_visit_to_a_blade_page_loads_it_in_full(): void
+    {
+        // Not signed in: an Inertia visit gets a location answer, so the browser loads sign-in in full.
+        $version = app(\App\Http\Middleware\HandleInertiaRequests::class)->version(request());
+        $this->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => (string) $version])->get('/')->assertStatus(409)->assertHeader('X-Inertia-Location', route('sign-in'));
+    }
+
+    public function test_the_appearance_cookie_sets_the_theme_and_a_script_nonce(): void
+    {
+        $this->fakeBudget();
+
+        $response = $this->signedIn()->withUnencryptedCookie('appearance', 'dark')->get('/')->assertOk();
+        $response->assertSee('data-theme="dark"', false);
+        $this->assertMatchesRegularExpression("/script-src 'self' 'nonce-[A-Za-z0-9]+'/", $response->headers->get('Content-Security-Policy'));
     }
 
     public function test_budget_table_and_the_chosen_envelope(): void

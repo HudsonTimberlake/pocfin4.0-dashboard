@@ -49,3 +49,15 @@ if (! function_exists('initials')) {
         return mb_strtoupper(mb_substr(trim((string) $name), 0, 1)) ?: '?';
     }
 }
+
+if (! function_exists('leave')) {
+    /**
+     * A redirect that also works from a React page (Inertia): to a Blade page (sign in, lock, the
+     * code) the browser has to load it in full, so Inertia gets a location answer instead.
+     */
+    function leave(string $url): \Symfony\Component\HttpFoundation\Response
+    {
+        return request()->header('X-Inertia') ? \Inertia\Inertia::location($url) : redirect($url);
+    }
+}
+

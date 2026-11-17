@@ -9,6 +9,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\InviteController;
+use App\Http\Controllers\MoneyController;
 use App\Http\Controllers\OverviewController;
 use App\Http\Controllers\PremiumController;
 use App\Http\Controllers\RecapController;
@@ -35,6 +36,15 @@ Route::middleware(['signed.in', 'idle'])->group(function () {
     Route::post('/budget/switch', [BudgetController::class, 'switch'])->name('budget.switch');
 
     Route::get('/', [OverviewController::class, 'show'])->name('overview');
+
+    // Version 2: the Add panel and in-place edits (W3). Amounts and notes travel in the body, never the address.
+    Route::get('/add/options', [MoneyController::class, 'options'])->name('add.options');
+    Route::post('/money/expenses', [MoneyController::class, 'storeExpense'])->name('money.expense');
+    Route::patch('/money/expenses/{expense}', [MoneyController::class, 'updateExpense'])->whereNumber('expense');
+    Route::delete('/money/expenses/{expense}', [MoneyController::class, 'destroyExpense'])->whereNumber('expense');
+    Route::post('/money/income', [MoneyController::class, 'storeIncome'])->name('money.income');
+    Route::post('/money/moves', [MoneyController::class, 'storeMove'])->name('money.move');
+    Route::post('/money/accounts/{account}/expenses', [MoneyController::class, 'storeAccountExpense'])->whereNumber('account');
     Route::get('/budget', [BudgetController::class, 'show'])->name('budget');
     Route::get('/history', [HistoryController::class, 'show'])->name('history');
     // Search words and filters are posted and kept in the session, never put in the address.

@@ -22,7 +22,7 @@ class IdleLock
             $session->put('locked', true);
             $session->put('url.intended', $request->fullUrl());
 
-            return redirect()->route('lock');
+            return leave(route('lock'));
         }
 
         $session->put('last_activity', time());

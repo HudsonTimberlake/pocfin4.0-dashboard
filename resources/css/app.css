@@ -2,31 +2,82 @@
 @import '@fontsource-variable/manrope';
 
 @source '../../storage/framework/views/*.php';
+@source '../js/**/*.tsx';
 
-/* PocFin design tokens (brand/README.md, design/design-system.html), as on pocfin.com. */
-@theme {
+/*
+ * PocFin design tokens (brand/README.md, design/design-system.html, dark: design/dark-mode.md).
+ * Every colour is a variable: light by default, dark under [data-theme="dark"], which only the
+ * version 2 (React) root view sets. Release 1 Blade pages never get it, so they stay light.
+ */
+:root {
+    --canvas: #F6F7F7; --card: #FFFFFF; --ink: #1E1E1E; --slate: #5F6B6B; --muted: #9AA3A3;
+    --line: #E7EAEA; --line-strong: #D5DADA; --rule: #F0F2F2; --segment: #ECEEEE;
+    --mint: #03C7AA; --on-mint: #1E1E1E; --teal: #027868; --tint: #E6F8F5; --tint-soft: #F2FCFA; --tint-sub: #3E5B57;
+    --navy: #013551; --navy-ink: #22465E; --navy-text: #013551; --navy-tint: #E6EEF3; --navy-soft: #B8CCD8; --navy-line: #013551;
+    --mint-light: #9BE6D8; --chart-mint: #7EE3D2; --chart-soft: #9AB0BF; --chart-grey: #C9D1D1;
+    --red: #C8373D; --red-ink: #A3262C; --red-text: #6B1D21; --red-tint: #FBECEC;
+    --amber: #A35C00; --amber-tint: #FBF1E3; --amber-ink: #7A4500; --amber-text: #5C3400; --amber-line: #F3DDBE;
+    --scrim: rgba(30, 30, 30, 0.3); --toast: #2C2C30; --glass: rgba(246, 247, 247, 0.86);
+    color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+    --canvas: #0A0A0B; --card: #18181A; --ink: #F2F2F2; --slate: #A0A0A6; --muted: #6E6E74;
+    --line: #2A2A2D; --line-strong: #3B3B3F; --rule: #222225; --segment: #242427;
+    --on-mint: #10201D; --teal: #3DDCC3; --tint: #1E2B29; --tint-soft: #171C1B; --tint-sub: #9BC9C0;
+    --navy: #0F3F5E; --navy-ink: #BFD9EB; --navy-text: #BFD9EB; --navy-tint: #1A2733; --navy-soft: #4A6476; --navy-line: #BFD9EB;
+    --mint-light: #2E6F64; --chart-soft: #6F8A9B; --chart-grey: #55555A;
+    --red: #FF8085; --red-ink: #FF8085; --red-text: #F6C9CB; --red-tint: #3A1F21;
+    --amber: #F0A843; --amber-tint: #33290F; --amber-ink: #F4D9AE; --amber-text: #F4D9AE; --amber-line: #5A4720;
+    --scrim: rgba(0, 0, 0, 0.6); --toast: #2C2C30; --glass: rgba(10, 10, 11, 0.86);
+    color-scheme: dark;
+}
+
+@theme inline {
     --font-sans: 'Manrope Variable', ui-sans-serif, system-ui, sans-serif;
 
-    --color-canvas: #F6F7F7;
-    --color-ink: #1E1E1E;
-    --color-mint: #03C7AA;
-    --color-teal: #027868;
-    --color-navy: #013551;
-    --color-navy-tint: #E6EEF3;
-    --color-navy-ink: #22465E;
-    --color-navy-soft: #B8CCD8;
-    --color-mint-light: #9BE6D8;
-    --color-tint: #E6F8F5;
-    --color-tint-soft: #F2FCFA;
-    --color-slate: #5F6B6B;
-    --color-line: #E7EAEA;
-    --color-rule: #F0F2F2;
-    --color-red: #C8373D;
-    --color-red-ink: #A3262C;
-    --color-red-tint: #FBECEC;
-    --color-amber-tint: #FBF1E3;
-    --color-amber-ink: #7A4500;
-    --color-amber-line: #F3DDBE;
+    --color-canvas: var(--canvas);
+    --color-card: var(--card);
+    --color-ink: var(--ink);
+    --color-slate: var(--slate);
+    --color-muted: var(--muted);
+    --color-line: var(--line);
+    --color-line-strong: var(--line-strong);
+    --color-rule: var(--rule);
+    --color-segment: var(--segment);
+    --color-mint: var(--mint);
+    --color-on-mint: var(--on-mint);
+    --color-teal: var(--teal);
+    --color-tint: var(--tint);
+    --color-tint-soft: var(--tint-soft);
+    --color-tint-sub: var(--tint-sub);
+    --color-navy: var(--navy);
+    --color-navy-ink: var(--navy-ink);
+    --color-navy-text: var(--navy-text);
+    --color-navy-tint: var(--navy-tint);
+    --color-navy-soft: var(--navy-soft);
+    --color-navy-line: var(--navy-line);
+    --color-mint-light: var(--mint-light);
+    --color-chart-mint: var(--chart-mint);
+    --color-chart-soft: var(--chart-soft);
+    --color-chart-grey: var(--chart-grey);
+    --color-red: var(--red);
+    --color-red-ink: var(--red-ink);
+    --color-red-text: var(--red-text);
+    --color-red-tint: var(--red-tint);
+    --color-amber: var(--amber);
+    --color-amber-tint: var(--amber-tint);
+    --color-amber-ink: var(--amber-ink);
+    --color-amber-text: var(--amber-text);
+    --color-amber-line: var(--amber-line);
+    --color-scrim: var(--scrim);
+    --color-toast: var(--toast);
+    --color-glass: var(--glass);
+}
+
+/* Switching appearance cross-fades every colour (design W5 · 7), never a flash. */
+html.theme-fading, html.theme-fading * {
+    transition: background-color .24s ease, color .24s ease, border-color .24s ease, fill .24s ease, stroke .24s ease !important;
 }
 
 @layer base {

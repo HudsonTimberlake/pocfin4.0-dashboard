@@ -3,8 +3,11 @@
 The web view of PocFin: people sign in with their app account and see their budget on a bigger screen, plus an account area and, for admin emails, a support area. Plan and decisions: `../design/dashboard.md`. Boards: the "PocFin Dashboard" Design canvas (source in `../design/dashboard-canvas/`). The API's side is in `../pocfin4.0-api/CLAUDE.md` ("Web dashboard").
 
 ## Stack
-- Laravel 13, Blade, Vite, Tailwind CSS v4 (tokens in `resources/css/app.css` `@theme`, the same as pocfin.com), Manrope self-hosted.
-- Alpine's **CSP build** (`@alpinejs/csp`): no eval, so every component is in `resources/js/app.js` and the markup only names them.
+- Laravel 13, Vite, Tailwind CSS v4, Manrope self-hosted.
+- **Version 2 (from 2026-11-17, `../design/dashboard-v2.md`): Inertia 3 + React 19 + TypeScript**, `motion` for animation. Pages in `resources/js/pages` (each sets `Page.layout` to `Shell`, so the menu stays mounted), shared parts in `resources/js/components`, the app's own `money.ts` copied to `resources/js/shared` (keep in step with `pocfin4.0-app/src/lib`). Root view `resources/views/inertia.blade.php`; shared props in `HandleInertiaRequests` (never the API token). History encryption on, no SSR. Pages move over one at a time; until then the menu links to the release 1 Blade pages with plain links (full load).
+- Colours are CSS variables in `resources/css/app.css` (light in `:root`, dark under `[data-theme="dark"]`), mapped to Tailwind names with `@theme inline`. Only the React root view sets `data-theme` (from the `appearance` cookie: system, light or dark), so Blade pages stay light. Use `bg-card` (not `bg-white`) in React.
+- From React, a redirect to a Blade page must be `leave($url)` (an Inertia location answer, a full load), as in `SignedIn`, `IdleLock` and the exception handlers.
+- Release 1 Blade pages: Alpine's **CSP build** (`@alpinejs/csp`): no eval, so every component is in `resources/js/app.js` and the markup only names them.
 - **No database.** Sessions and cache are files. Everything else comes from the API through `App\Services\Api`.
 
 ## How sign-in works
@@ -18,7 +21,7 @@ The web view of PocFin: people sign in with their app account and see their budg
 - **Read only** in release 1, apart from account settings (name, password, sessions, covered budgets, referral budget, delete) and admin support actions. Money is changed in the app.
 - Money is shown from the API's decimal strings with `App\Support\Money` / `money()` / `money_big()`: digits regrouped, never floats.
 - **Nothing sensitive in addresses or logs:** search words and admin searches are posted and kept in the session (`history_filters`, `admin_filters`); only page numbers, tabs and ids go in the URL.
-- `SecurityHeaders`: strict CSP (scripts from this site only, no eval, no framing), `no-store`, HSTS on HTTPS. No analytics or trackers here.
+- `SecurityHeaders`: strict CSP (scripts from this site only plus a per-page nonce for our own inline script, no eval, no framing), `no-store`, HSTS on HTTPS. No analytics or trackers here.
 - Admin pages are for `user.is_admin` (404 otherwise), but the API checks every admin call again. Admin changes send the admin's password, which the API checks and logs. Admins see account and Premium only, never another user's money.
 - Receipts and support screenshots are streamed through this app, so the browser never needs the API token.
 - Copy: SA/UK English, calm, "It all has a place", never "every rand has a job".
@@ -28,7 +31,7 @@ The web view of PocFin: people sign in with their app account and see their budg
 - Slow page? Set `DASHBOARD_LOG_TIMING=true` in `.env` (and `php artisan config:clear`): `storage/logs/laravel.log` then gets one `api` line per call with its milliseconds. Turn it off again afterwards.
 
 ## Tests
-`php artisan test` (32 tests, the API faked with `Http::fake`, `Http::preventStrayRequests`). Build assets with `npm run build`.
+`php artisan test` (34 tests, the API faked with `Http::fake`, `Http::preventStrayRequests`). Build assets with `npm run build`; type-check with `npx tsc --noEmit`. To look at pages without a real account: the `dashboard-fake-api` and `pocfin-dashboard-sample` entries in `../.claude/launch.json` serve sample figures (`scripts/fake-api.php`) on port 8021; any sign-in works, so no real account is needed.
 
 ## Server
 A Laravel app on the `dashboard.pocfin.com` subdomain (HostAfrica), document root `public/`. `.env`: `APP_URL=https://dashboard.pocfin.com`, `APP_ENV=production`, `APP_DEBUG=false`, `POCFIN_API_URL=https://api.pocfin.com/api`, `DASHBOARD_KEY` (the same value as the API's), `SESSION_SECURE_COOKIE=true`, `SESSION_DRIVER=file`, `SESSION_LIFETIME=720`, `SESSION_ENCRYPT=true`, and leave `SESSION_DOMAIN` empty (the cookie stays on the subdomain).
