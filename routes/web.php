@@ -76,6 +76,12 @@ Route::middleware(['signed.in', 'idle'])->group(function () {
     Route::post('/history/receipt/{expense}', [HistoryController::class, 'storeReceipt'])->whereNumber('expense');
     Route::delete('/history/receipt/{expense}', [HistoryController::class, 'destroyReceipt'])->whereNumber('expense');
     Route::get('/accounts', [AccountsController::class, 'show'])->name('accounts');
+    // Version 2 Accounts (W11); one investment account has its own page (W12).
+    Route::get('/investments/{account}', [AccountsController::class, 'investment'])->whereNumber('account')->name('investment');
+    Route::post('/accounts', [AccountsController::class, 'store']);
+    Route::patch('/accounts/{account}', [AccountsController::class, 'update'])->whereNumber('account');
+    Route::delete('/accounts/{account}', [AccountsController::class, 'destroy'])->whereNumber('account');
+    Route::post('/accounts/{account}/transactions', [AccountsController::class, 'transaction'])->whereNumber('account');
     Route::get('/recaps', [RecapController::class, 'show'])->name('recaps');
 
     Route::get('/account', [AccountController::class, 'show'])->name('account');

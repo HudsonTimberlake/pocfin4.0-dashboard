@@ -60,7 +60,7 @@ export default function AddPanel({ open, start, onClose }: { open: boolean; star
         setTab(start.tab ?? 'spent');
         setTyped(start.amount ?? '');
         setPlace(start.envelopeId ? `e:${start.envelopeId}` : '');
-        setFrom('');
+        setFrom(start.fromAccountId ? `a:${start.fromAccountId}` : start.tab === 'move' && start.envelopeId ? `e:${start.envelopeId}` : '');
         setTo(start.toEnvelopeId ? `e:${start.toEnvelopeId}` : '');
         setDay(ymd());
         setNote('');

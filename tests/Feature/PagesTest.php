@@ -167,16 +167,22 @@ class PagesTest extends TestCase
         $this->get('/history?tab=moved')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page->where('tab', 'moved'));
     }
 
-    public function test_accounts_with_returns(): void
+    public function test_accounts_is_react_and_an_investment_has_its_own_page(): void
     {
         $this->fakeBudget();
 
-        $this->signedIn()->get('/accounts')->assertOk()
-            ->assertSee('S&amp;P 500 ETF', false)
-            ->assertSee('12.40%')
-            ->assertSee('+R12,410.55')
-            ->assertSee('Retirement')
-            ->assertSee('Interest');
+        $this->signedIn()->get('/accounts')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Accounts')
+            ->has('accounts', 2)
+            ->where('accounts.0.mine', true)
+            ->where('purposes.0.name', 'Retirement')
+            ->where('open_id', null)
+            ->has('moves', 0));
+
+        // A savings account opens beside the tiles; an investment goes to its own page.
+        $this->get('/accounts?account=11')->assertInertia(fn (AssertableInertia $page) => $page->where('open_id', 11));
+        $this->get('/accounts?account=12')->assertRedirect(route('investment', ['account' => 12]));
+        $this->get('/investments/12')->assertOk()->assertSee('S&amp;P 500 ETF', false)->assertSee('12.40%')->assertSee('Interest');
     }
 
     public function test_recaps(): void

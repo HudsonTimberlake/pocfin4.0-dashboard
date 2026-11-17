@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 
 export type AddTab = 'spent' | 'income' | 'move' | 'refund';
-export type AddOpen = { tab?: AddTab; envelopeId?: number; toEnvelopeId?: number; amount?: string };
+export type AddOpen = { tab?: AddTab; envelopeId?: number; toEnvelopeId?: number; fromAccountId?: number; amount?: string };
 export type Toast = { text: string; undo?: () => void; ms?: number };
 
 /** What the Shell offers every page: the Add panel and the one toast at the bottom. */

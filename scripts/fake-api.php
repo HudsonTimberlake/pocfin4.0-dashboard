@@ -138,8 +138,10 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/transfers$#', $path) && $method =
     return $answer(['id' => ++$state['seq'], 'amount' => $body['amount']], 201);
 }
 if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts/(\d+)/transactions$#', $path, $m) && $method === 'POST') {
+    if ($c($body['amount'] ?? '0') <= 0) { return $fail('amount', 'The amount must be more than R0.00.'); }
     foreach ($state['accounts'] as &$a) { if ($a['id'] === (int) $m[2]) { $a['balance'] += ($body['type'] === 'add' ? 1 : -1) * $c($body['amount'] ?? '0'); } }
     unset($a);
+    $state['account_tx'][] = ['id' => ++$state['seq'], 'account_id' => (int) $m[2], 'type' => $body['type'], 'amount' => $body['amount'], 'date' => $body['date'], 'note' => $body['note'] ?? null, 'created_by' => 7];
     $save();
     return $answer(['id' => ++$state['seq'], 'amount' => $body['amount']], 201);
 }
@@ -313,6 +315,26 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/history/bulk$#', $path) && $metho
     return $answer(['done' => count($body['ids'])]);
 }
 
+// Accounts (W11): new, renamed or shared, closed.
+if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts$#', $path) && $method === 'POST') {
+    if (trim((string) ($body['name'] ?? '')) === '') { return $fail('name', 'The name field is required.'); }
+    if (($body['currency'] ?? 'ZAR') === 'USD' && ($body['type'] ?? '') !== 'investment') { return $fail('currency', 'Only an investment account can be in dollars.'); }
+    if (($body['currency'] ?? 'ZAR') === 'USD' && ! preg_match('/^\d{1,6}(\.\d{1,4})?$/', (string) ($body['usd_rate'] ?? ''))) { return $fail('usd_rate', 'The usd rate field is required when currency is USD.'); }
+    $a = ['id' => ++$state['seq'], 'name' => trim($body['name']), 'type' => $body['type'], 'balance' => 0, 'gain' => $body['type'] === 'investment' ? '0.00' : null, 'visibility' => $body['visibility'] ?? 'shared', 'currency' => $body['currency'] ?? 'ZAR'] + ($body['type'] === 'investment' ? ['value' => 0] : []);
+    $state['accounts'][] = $a;
+    $save();
+    return $answer(['id' => $a['id'], 'name' => $a['name'], 'type' => $a['type']], 201);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts/(\d+)$#', $path, $m) && in_array($method, ['PATCH', 'DELETE'], true)) {
+    $i = array_search((int) $m[2], array_column($state['accounts'], 'id'), true);
+    if ($i === false) { return $answer(['message' => 'Not found.'], 404); }
+    if ($method === 'DELETE') { array_splice($state['accounts'], $i, 1); $save(); return $answer(null, 204); }
+    if (array_key_exists('name', $body) && trim((string) $body['name']) === '') { return $fail('name', 'The name field is required.'); }
+    foreach (['name', 'visibility'] as $k) { if (isset($body[$k])) { $state['accounts'][$i][$k] = $body[$k]; } }
+    $save();
+    return $answer(['id' => (int) $m[2]]);
+}
+
 usort($state['envelopes'], fn ($a, $b) => ($a['sort'] ?? $a['id']) <=> ($b['sort'] ?? $b['id']));
 $envelopes = array_map(fn ($e) => ['id' => $e['id'], 'name' => $e['name'], 'icon' => $e['icon'] ?? null, 'budgeted_amount' => $s($e['target']), 'kind' => $e['kind'], 'balance' => $s($e['balance']), 'sort_order' => $e['sort'] ?? $e['id'], 'archived' => (bool) ($e['archived'] ?? false), 'built_up_snoozed_through' => null], $state['envelopes']);
 $left = array_sum(array_column($state['envelopes'], 'balance'));
@@ -320,7 +342,7 @@ $spent = array_sum(array_column($state['envelopes'], 'spent'));
 $byId = array_column($state['envelopes'], null, 'id');
 $top = array_values(array_filter($state['envelopes'], fn ($e) => $e['spent'] > 0 && $e['name'] !== 'Rent' && $e['name'] !== 'Phone and internet'));
 usort($top, fn ($a, $b) => $b['spent'] <=> $a['spent']);
-$accounts = array_map(fn ($a) => ['id' => $a['id'], 'name' => $a['name'], 'type' => $a['type'], 'visibility' => 'shared', 'created_by' => 7, 'balance' => $s($a['balance']), 'value' => isset($a['value']) ? $s($a['value']) : null, 'gain' => $a['gain']], $state['accounts']);
+$accounts = array_map(fn ($a) => ['id' => $a['id'], 'name' => $a['name'], 'type' => $a['type'], 'visibility' => $a['visibility'] ?? ($a['id'] === 12 ? 'private' : 'shared'), 'created_by' => 7, 'currency' => $a['currency'] ?? 'ZAR', 'simple_return' => $a['type'] === 'investment' ? '9.61' : null, 'balance' => $s($a['balance']), 'value' => isset($a['value']) ? $s($a['value']) : null, 'gain' => $a['gain']], $state['accounts']);
 $total = array_sum(array_map(fn ($a) => $a['value'] ?? $a['balance'], $state['accounts']));
 
 $overview = [
@@ -359,6 +381,26 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/allocate$#', $path)) {
 
 if (preg_match('#^/api/dashboard/budgets/(\d+)/edit-envelopes$#', $path)) {
     return $answer(['monthly_income' => $state['income'] ?? '22850.00', 'can_change_income' => true, 'envelopes' => $envelopes, 'plans' => $state['plans'] ?? []]);
+}
+
+// Accounts (W11): every account, the totals, purposes, goals, and the chosen one's money in and out.
+if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts$#', $path)) {
+    $sel = (int) ($_GET['account'] ?? 0) ?: (current(array_filter($accounts, fn ($a) => $a['type'] === 'investment'))['id'] ?? null);
+    $byType = fn ($t) => $s(array_sum(array_map(fn ($a) => $a['value'] ?? $a['balance'], array_filter($state['accounts'], fn ($a) => $a['type'] === $t))));
+    $txs = array_values(array_filter($state['account_tx'] ?? [], fn ($t) => $t['account_id'] === $sel));
+    $seeded = [11 => [['id' => 901, 'account_id' => 11, 'type' => 'add', 'amount' => '312.40', 'date' => date('Y-m-d', strtotime('last day of last month')), 'note' => 'Interest', 'created_by' => 7]]];
+    return $answer([
+        'accounts' => $accounts,
+        'summary' => array_replace($overview['summary'], ['accounts' => ['savings' => $byType('savings'), 'holding' => $byType('holding'), 'investments' => $byType('investment'), 'total' => $s($total)]]),
+        'members' => $overview['members'],
+        'selected_id' => $sel,
+        'purposes' => [['id' => 5, 'name' => 'Retirement', 'net_contributed' => '71419.81', 'value' => '78340.12', 'gain' => '6920.31'], ['id' => 6, 'name' => 'House deposit', 'net_contributed' => '43789.76', 'value' => '48200.00', 'gain' => '4410.24'], ['id' => 7, 'name' => 'Travel', 'net_contributed' => '13920.00', 'value' => '15000.00', 'gain' => '1080.00']],
+        'goals' => [['id' => 1, 'name' => 'Emergency fund', 'account_id' => 11, 'kind' => 'habit', 'status' => 'active', 'state' => empty($state['goal_paid']) ? 'waiting' : 'on_track', 'target_amount' => null, 'total' => null, 'this_cycle' => ['needed' => '500.00', 'in' => empty($state['goal_paid']) ? '0.00' : '500.00', 'left' => empty($state['goal_paid']) ? '500.00' : '0.00', 'status' => empty($state['goal_paid']) ? 'waiting' : 'on']]],
+        'holdings' => [], 'returns' => (object) [],
+        'allocations' => ['data' => $sel === 11 ? [['id' => 801, 'deposit_id' => 40, 'deposit_note' => 'Salary', 'account_id' => 11, 'amount' => '500.00', 'date' => date('Y-m-01', strtotime('-1 month')), 'created_by' => 7]] : []],
+        'transactions' => ['data' => [...array_reverse($txs), ...($seeded[$sel] ?? [])]],
+        'transfers' => ['data' => array_map($shapeTransfer, array_values(array_filter($state['transfers'] ?? [], fn ($t) => ($t['from_account_id'] ?? 0) === $sel || ($t['to_account_id'] ?? 0) === $sel)))],
+    ]);
 }
 
 // History (W10): one page of a tab, with the filters, newest or oldest first; and every row for the CSV.
