@@ -44,7 +44,20 @@ function fresh(callable $day): array
             ['id' => 11, 'name' => 'Emergency fund', 'type' => 'savings', 'balance' => 4230000, 'gain' => null],
             ['id' => 12, 'name' => 'Car licence and tax', 'type' => 'holding', 'balance' => 310000, 'gain' => null],
             ['id' => 13, 'name' => 'Long-term investments', 'type' => 'investment', 'balance' => 12912957, 'gain' => '12410.55', 'value' => 14154012],
+            ['id' => 14, 'name' => 'Offshore portfolio', 'type' => 'investment', 'balance' => 5000000, 'gain' => '4600.00', 'value' => 5460000, 'currency' => 'USD', 'usd_rate' => '18.2000', 'rate_updated_at' => date('Y-m-01').'T08:00:00+02:00'],
         ],
+        // Holdings: positions hold a value and what was put in, per purpose; values newest first.
+        'holdings' => [
+            ['id' => 21, 'account_id' => 13, 'name' => 'S&P 500 ETF', 'twr' => ['cycle' => '1.20', 'ytd' => '12.40', 'all' => '18.20'], 'pos' => [[5, 5345045, 4836000], [6, 3275995, 2964000]],
+                'vals' => [[date('Y-m-01'), 8621040], [date('Y-m-01', strtotime('-1 month')), 8314010], [date('Y-m-01', strtotime('-2 months')), 8199055], [date('Y-m-01', strtotime('-3 months')), 8030400]]],
+            ['id' => 22, 'account_id' => 13, 'name' => 'SA Top 40 ETF', 'twr' => ['cycle' => '0.80', 'ytd' => '7.10', 'all' => '9.30'], 'pos' => [[5, 2412062, 2263000], [7, 1478360, 1387000]],
+                'vals' => [[date('Y-m-01'), 3890422], [date('Y-m-01', strtotime('-1 month')), 3810000], [date('Y-m-01', strtotime('-2 months')), 3762015]]],
+            ['id' => 23, 'account_id' => 13, 'name' => 'Global bond fund', 'twr' => ['cycle' => '0.40', 'ytd' => '4.85', 'all' => '13.10'], 'pos' => [[6, 1642550, 1462957]],
+                'vals' => [[date('Y-m-01'), 1642550], [date('Y-m-01', strtotime('-1 month')), 1634020]]],
+            ['id' => 24, 'account_id' => 14, 'name' => 'MSCI World ETF', 'twr' => ['cycle' => '1.10', 'ytd' => '9.20', 'all' => '9.20'], 'pos' => [[5, 5460000, 5000000]],
+                'vals' => [[date('Y-m-01'), 5460000], [date('Y-m-01', strtotime('-1 month')), 5300000]]],
+        ],
+        'purposes' => [5 => 'Retirement', 6 => 'House deposit', 7 => 'Travel'],
         'expenses' => [
             ['id' => 1, 'envelope_id' => 1, 'amount' => 84230, 'refund' => false, 'date' => $day(0), 'note' => 'Weekly shop', 'created_by' => 7],
             ['id' => 2, 'envelope_id' => 3, 'amount' => 70000, 'refund' => false, 'date' => $day(0), 'note' => 'Fuel', 'created_by' => 8],
@@ -139,8 +152,27 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/transfers$#', $path) && $method =
 }
 if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts/(\d+)/transactions$#', $path, $m) && $method === 'POST') {
     if ($c($body['amount'] ?? '0') <= 0) { return $fail('amount', 'The amount must be more than R0.00.'); }
-    foreach ($state['accounts'] as &$a) { if ($a['id'] === (int) $m[2]) { $a['balance'] += ($body['type'] === 'add' ? 1 : -1) * $c($body['amount'] ?? '0'); } }
+    if (! empty($body['holding_id'])) {
+        $k = array_search((int) $body['holding_id'], array_column($state['holdings'], 'id'), true);
+        $h = &$state['holdings'][$k]; $amt = ($body['type'] === 'add' ? 1 : -1) * $c($body['amount']);
+        $pi = array_search((int) $body['purpose_id'], array_column($h['pos'], 0), true);
+        if ($amt < 0 && ($pi === false || -$amt > $h['pos'][$pi][1])) { return $fail('amount', 'That purpose doesn’t hold that much in this holding.'); }
+        array_unshift($h['vals'], [$body['date'], $c($body['holding_value'])]);
+        if ($pi === false) { $h['pos'][] = [(int) $body['purpose_id'], $amt, $amt]; } else { $h['pos'][$pi][1] += $amt; $h['pos'][$pi][2] += $amt; }
+        unset($h);
+    }
+    foreach ($state['accounts'] as &$a) { if ($a['id'] === (int) $m[2] && empty($body['holding_id'])) { $a['balance'] += ($body['type'] === 'add' ? 1 : -1) * $c($body['amount'] ?? '0'); } }
     unset($a);
+    if (! empty($body['holding_id'])) {
+        foreach ($state['accounts'] as &$a) {
+            if ($a['type'] !== 'investment') { continue; }
+            $hs = array_filter($state['holdings'], fn ($h) => $h['account_id'] === $a['id']);
+            $a['value'] = array_sum(array_map(fn ($h) => array_sum(array_column($h['pos'], 1)), $hs));
+            $a['balance'] = array_sum(array_map(fn ($h) => array_sum(array_column($h['pos'], 2)), $hs));
+            $a['gain'] = number_format(($a['value'] - $a['balance']) / 100, 2, '.', '');
+        }
+        unset($a);
+    }
     $state['account_tx'][] = ['id' => ++$state['seq'], 'account_id' => (int) $m[2], 'type' => $body['type'], 'amount' => $body['amount'], 'date' => $body['date'], 'note' => $body['note'] ?? null, 'created_by' => 7];
     $save();
     return $answer(['id' => ++$state['seq'], 'amount' => $body['amount']], 201);
@@ -315,6 +347,76 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/history/bulk$#', $path) && $metho
     return $answer(['done' => count($body['ids'])]);
 }
 
+// One investment (W12/W12b): holdings, values, purpose moves, the dollar rate, money in and out of a holding.
+$state['holdings'] ??= [];
+$hIndex = fn (int $id) => array_search($id, array_column($state['holdings'], 'id'), true);
+$hValue = fn (array $h) => array_sum(array_map(fn ($p) => $p[1], $h['pos']));
+$resum = function () use (&$state, $hValue) {
+    foreach ($state['accounts'] as &$a) {
+        if ($a['type'] !== 'investment') { continue; }
+        $hs = array_filter($state['holdings'], fn ($h) => $h['account_id'] === $a['id']);
+        $a['value'] = array_sum(array_map($hValue, $hs));
+        $a['balance'] = array_sum(array_map(fn ($h) => array_sum(array_map(fn ($p) => $p[2], $h['pos'])), $hs));
+        $a['gain'] = number_format(($a['value'] - $a['balance']) / 100, 2, '.', '');
+    }
+};
+if (preg_match('#^/api/dashboard/budgets/(\d+)/purposes$#', $path) && $method === 'POST') {
+    if (trim((string) ($body['name'] ?? '')) === '') { return $fail('name', 'The name field is required.'); }
+    $id = ++$state['seq'];
+    $state['purposes'][$id] = trim($body['name']);
+    $save();
+    return $answer(['id' => $id, 'name' => trim($body['name'])], 201);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts/(\d+)/rate$#', $path, $m) && $method === 'PUT') {
+    $i = array_search((int) $m[2], array_column($state['accounts'], 'id'), true);
+    if (($state['accounts'][$i]['currency'] ?? 'ZAR') !== 'USD') { return $fail('rate', 'Only a dollar account has a rate.'); }
+    $r = (float) $body['rate']; $old = (float) $state['accounts'][$i]['usd_rate'];
+    if ($r <= 0) { return $fail('rate', 'The rate must be more than 0.'); }
+    foreach ($state['holdings'] as &$h) { if ($h['account_id'] === (int) $m[2]) { foreach ($h['pos'] as &$p) { $p[1] = (int) round($p[1] * $r / $old); } unset($p); array_unshift($h['vals'], [date('Y-m-d'), $hValue($h)]); } }
+    unset($h);
+    $state['accounts'][$i]['usd_rate'] = number_format($r, 4, '.', ''); $state['accounts'][$i]['rate_updated_at'] = date('c');
+    $resum(); $save();
+    return $answer(['id' => (int) $m[2], 'usd_rate' => $state['accounts'][$i]['usd_rate']]);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts/(\d+)/holdings$#', $path, $m) && $method === 'POST') {
+    if (trim((string) ($body['name'] ?? '')) === '') { return $fail('name', 'The name field is required.'); }
+    $state['holdings'][] = ['id' => ++$state['seq'], 'account_id' => (int) $m[2], 'name' => trim($body['name']), 'twr' => ['cycle' => null, 'ytd' => null, 'all' => null], 'pos' => [], 'vals' => []];
+    $save();
+    return $answer(['id' => $state['seq'], 'name' => trim($body['name'])], 201);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts/(\d+)/valuations$#', $path, $m) && $method === 'POST') {
+    foreach (array_values($body['values'] ?? []) as $i => $line) { if (! $amountOk($line['value'] ?? '')) { return $fail("values.$i.value", 'The value field format is invalid.'); } }
+    foreach ($body['values'] as $line) {
+        $k = $hIndex((int) $line['holding_id']); $h = &$state['holdings'][$k]; $old = $hValue($h); $new = $c($line['value']);
+        foreach ($h['pos'] as &$p) { $p[1] = $old ? (int) round($p[1] * $new / $old) : 0; } unset($p);
+        array_unshift($h['vals'], [$body['date'], $new]); unset($h);
+    }
+    $resum(); $save();
+    return $answer(['saved' => count($body['values'])], 201);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts/(\d+)/holdings/(\d+)(/valuations/(\d+)|/purpose-moves)?$#', $path, $m) && in_array($method, ['PATCH', 'DELETE', 'POST'], true)) {
+    $k = $hIndex((int) $m[3]);
+    if ($k === false) { return $answer(['message' => 'Not found.'], 404); }
+    $h = &$state['holdings'][$k];
+    if (($m[4] ?? '') === '/purpose-moves') {
+        $amt = $c($body['amount'] ?? '0');
+        $from = array_search((int) $body['from_purpose_id'], array_column($h['pos'], 0), true);
+        if ($from === false || $amt <= 0 || $amt > $h['pos'][$from][1]) { return $fail('amount', 'That purpose doesn’t hold that much in this holding.'); }
+        $putShare = (int) round($h['pos'][$from][2] * $amt / $h['pos'][$from][1]);
+        $h['pos'][$from][1] -= $amt; $h['pos'][$from][2] -= $putShare;
+        $to = array_search((int) $body['to_purpose_id'], array_column($h['pos'], 0), true);
+        if ($to === false) { $h['pos'][] = [(int) $body['to_purpose_id'], $amt, $putShare]; } else { $h['pos'][$to][1] += $amt; $h['pos'][$to][2] += $putShare; }
+        array_unshift($h['vals'], [$body['date'], $hValue($h)]);
+        unset($h); $save();
+        return $answer(['moved' => true]);
+    }
+    if (! empty($m[5])) { array_shift($h['vals']); unset($h); $save(); return $answer(null, 204); }
+    if ($method === 'DELETE') { unset($h); array_splice($state['holdings'], $k, 1); $resum(); $save(); return $answer(null, 204); }
+    if (trim((string) ($body['name'] ?? '')) === '') { return $fail('name', 'The name field is required.'); }
+    $h['name'] = trim($body['name']); unset($h); $save();
+    return $answer(['id' => (int) $m[3], 'name' => trim($body['name'])]);
+}
+
 // Accounts (W11): new, renamed or shared, closed.
 if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts$#', $path) && $method === 'POST') {
     if (trim((string) ($body['name'] ?? '')) === '') { return $fail('name', 'The name field is required.'); }
@@ -342,7 +444,7 @@ $spent = array_sum(array_column($state['envelopes'], 'spent'));
 $byId = array_column($state['envelopes'], null, 'id');
 $top = array_values(array_filter($state['envelopes'], fn ($e) => $e['spent'] > 0 && $e['name'] !== 'Rent' && $e['name'] !== 'Phone and internet'));
 usort($top, fn ($a, $b) => $b['spent'] <=> $a['spent']);
-$accounts = array_map(fn ($a) => ['id' => $a['id'], 'name' => $a['name'], 'type' => $a['type'], 'visibility' => $a['visibility'] ?? ($a['id'] === 12 ? 'private' : 'shared'), 'created_by' => 7, 'currency' => $a['currency'] ?? 'ZAR', 'simple_return' => $a['type'] === 'investment' ? '9.61' : null, 'balance' => $s($a['balance']), 'value' => isset($a['value']) ? $s($a['value']) : null, 'gain' => $a['gain']], $state['accounts']);
+$accounts = array_map(fn ($a) => ['id' => $a['id'], 'name' => $a['name'], 'type' => $a['type'], 'visibility' => $a['visibility'] ?? ($a['id'] === 12 ? 'private' : 'shared'), 'created_by' => 7, 'currency' => $a['currency'] ?? 'ZAR', 'usd_rate' => $a['usd_rate'] ?? null, 'rate_updated_at' => $a['rate_updated_at'] ?? null, 'simple_return' => $a['type'] === 'investment' && $a['balance'] ? number_format(($a['value'] - $a['balance']) / $a['balance'] * 100, 2, '.', '') : null, 'balance' => $s($a['balance']), 'value' => isset($a['value']) ? $s($a['value']) : null, 'gain' => $a['gain']], $state['accounts']);
 $total = array_sum(array_map(fn ($a) => $a['value'] ?? $a['balance'], $state['accounts']));
 
 $overview = [
@@ -394,9 +496,30 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts$#', $path)) {
         'summary' => array_replace($overview['summary'], ['accounts' => ['savings' => $byType('savings'), 'holding' => $byType('holding'), 'investments' => $byType('investment'), 'total' => $s($total)]]),
         'members' => $overview['members'],
         'selected_id' => $sel,
-        'purposes' => [['id' => 5, 'name' => 'Retirement', 'net_contributed' => '71419.81', 'value' => '78340.12', 'gain' => '6920.31'], ['id' => 6, 'name' => 'House deposit', 'net_contributed' => '43789.76', 'value' => '48200.00', 'gain' => '4410.24'], ['id' => 7, 'name' => 'Travel', 'net_contributed' => '13920.00', 'value' => '15000.00', 'gain' => '1080.00']],
+        'purposes' => array_values(array_map(function ($id, $name) use (&$state, $s) {
+            $v = 0; $put = 0;
+            foreach ($state['holdings'] as $h) { foreach ($h['pos'] as $p) { if ($p[0] === $id) { $v += $p[1]; $put += $p[2]; } } }
+            return ['id' => $id, 'name' => $name, 'net_contributed' => $s($put), 'value' => $s($v), 'gain' => $s($v - $put)];
+        }, array_keys($state['purposes'] ?? []), $state['purposes'] ?? [])),
         'goals' => [['id' => 1, 'name' => 'Emergency fund', 'account_id' => 11, 'kind' => 'habit', 'status' => 'active', 'state' => empty($state['goal_paid']) ? 'waiting' : 'on_track', 'target_amount' => null, 'total' => null, 'this_cycle' => ['needed' => '500.00', 'in' => empty($state['goal_paid']) ? '0.00' : '500.00', 'left' => empty($state['goal_paid']) ? '500.00' : '0.00', 'status' => empty($state['goal_paid']) ? 'waiting' : 'on']]],
-        'holdings' => [], 'returns' => (object) [],
+        ...(function () use (&$state, $sel, $s) {
+            $acc = current(array_filter($state['accounts'], fn ($a) => $a['id'] === $sel));
+            if (! $acc || $acc['type'] !== 'investment') { return ['holdings' => [], 'returns' => (object) [], 'valuations' => (object) []]; }
+            $rate = isset($acc['usd_rate']) ? (float) $acc['usd_rate'] : null;
+            $usd = fn ($c) => $rate ? number_format($c / 100 / $rate, 2, '.', '') : null;
+            $period = $_GET['period'] ?? 'ytd';
+            $out = ['holdings' => [], 'returns' => [], 'valuations' => []];
+            foreach (array_filter($state['holdings'], fn ($h) => $h['account_id'] === $sel) as $h) {
+                $v = array_sum(array_column($h['pos'], 1)); $put = array_sum(array_column($h['pos'], 2));
+                $out['holdings'][] = ['id' => $h['id'], 'account_id' => $sel, 'name' => $h['name'], 'value' => $s($v), 'usd_rate' => $acc['usd_rate'] ?? null, 'value_usd' => $usd($v),
+                    'last_valuation' => $h['vals'] ? ['date' => $h['vals'][0][0], 'value' => $s($h['vals'][0][1]), 'value_usd' => $usd($h['vals'][0][1])] : null,
+                    'positions' => array_map(fn ($p) => ['id' => $p[0] * 100 + $h['id'], 'purpose_id' => $p[0], 'purpose' => $state['purposes'][$p[0]] ?? 'Purpose', 'value' => $s($p[1]), 'value_usd' => $usd($p[1])], $h['pos'])];
+                $out['returns'][$h['id']] = ['holding_id' => $h['id'], 'net_contributed' => $s($put), 'value' => $s($v), 'gain' => $s($v - $put), 'simple_return' => $put > 0 ? number_format(($v - $put) / $put * 100, 2, '.', '') : null, 'time_weighted_return' => $h['twr'][$period] ?? null,
+                    'positions' => array_map(fn ($p) => ['purpose_id' => $p[0], 'net_contributed' => $s($p[2]), 'value' => $s($p[1]), 'gain' => $s($p[1] - $p[2]), 'simple_return' => $p[2] > 0 ? number_format(($p[1] - $p[2]) / $p[2] * 100, 2, '.', '') : null], $h['pos'])];
+                $out['valuations'][$h['id']] = array_map(fn ($x, $i) => ['id' => $h['id'] * 1000 + count($h['vals']) - $i, 'date' => $x[0], 'value' => $s($x[1]), 'foreign_value' => $usd($x[1]), 'rate' => $acc['usd_rate'] ?? null, 'created_by' => 7, 'deletable' => $i === 0], array_slice($h['vals'], 0, 12), array_keys(array_slice($h['vals'], 0, 12)));
+            }
+            return [...$out, 'returns' => $out['returns'] ?: (object) [], 'valuations' => $out['valuations'] ?: (object) []];
+        })(),
         'allocations' => ['data' => $sel === 11 ? [['id' => 801, 'deposit_id' => 40, 'deposit_note' => 'Salary', 'account_id' => 11, 'amount' => '500.00', 'date' => date('Y-m-01', strtotime('-1 month')), 'created_by' => 7]] : []],
         'transactions' => ['data' => [...array_reverse($txs), ...($seeded[$sel] ?? [])]],
         'transfers' => ['data' => array_map($shapeTransfer, array_values(array_filter($state['transfers'] ?? [], fn ($t) => ($t['from_account_id'] ?? 0) === $sel || ($t['to_account_id'] ?? 0) === $sel)))],

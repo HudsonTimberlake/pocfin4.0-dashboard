@@ -30,9 +30,8 @@ class AccountsTest extends TestCase
             ->push(['id' => 15, 'name' => 'Offshore', 'type' => 'investment'], 201)]);
 
         $this->signedIn()->post('/accounts', ['name' => 'Holiday', 'type' => 'holding', 'visibility' => 'private'])->assertRedirect('/accounts?account=14');
-        // From React an investment page is a full load (Inertia location).
-        $this->signedIn()->post('/accounts', ['name' => 'Offshore', 'type' => 'investment', 'visibility' => 'shared', 'currency' => 'USD', 'usd_rate' => '18.25'], ['X-Inertia' => 'true'])
-            ->assertStatus(409)->assertHeader('X-Inertia-Location', route('investment', ['account' => 15]));
+        $this->signedIn()->post('/accounts', ['name' => 'Offshore', 'type' => 'investment', 'visibility' => 'shared', 'currency' => 'USD', 'usd_rate' => '18.25'])
+            ->assertRedirect(route('investment', ['account' => 15]));
 
         Http::assertSent(fn (Request $r) => $r->method() === 'POST' && str_ends_with($r->url(), '/accounts') && ($r->data()['currency'] ?? null) === 'USD' && ($r->data()['usd_rate'] ?? null) === '18.25');
         Http::assertSent(fn (Request $r) => $r->method() === 'POST' && str_ends_with($r->url(), '/accounts') && ($r->data()['visibility'] ?? null) === 'private' && ! array_key_exists('usd_rate', $r->data()));

@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import AccountPanel, { goalChip, kindLabel, type Account, type Goal, type Move } from '@/components/AccountPanel';
 import Icon from '@/components/Icon';
 import Money from '@/components/Money';
@@ -47,7 +47,6 @@ export default function Accounts(p: Props) {
     const open = typeof panel === 'number' ? p.accounts.find((a) => a.id === panel) : undefined;
 
     function openAccount(a: Account) {
-        if (a.type === 'investment') return void (window.location.href = `/investments/${a.id}`);
         if (panel === a.id) return closePanel();
         setPanel(a.id);
         router.get('/accounts', { account: a.id }, { only: ['open_id', 'moves'], preserveState: true, preserveScroll: true, replace: true });
@@ -139,9 +138,9 @@ export default function Accounts(p: Props) {
                                     );
                                     const cls = `flex flex-col gap-0.5 rounded-[20px] px-5 py-4 text-left transition-transform active:scale-[0.98] ${on ? 'bg-card ring-2 ring-navy ring-inset' : 'bg-navy-tint hover:ring-1 hover:ring-navy-line hover:ring-inset'}`;
                                     return a.type === 'investment' ? (
-                                        <a key={a.id} href={`/investments/${a.id}`} className={cls}>
+                                        <Link key={a.id} href={`/investments/${a.id}`} className={cls}>
                                             {tile}
-                                        </a>
+                                        </Link>
                                     ) : (
                                         <button key={a.id} type="button" onClick={() => openAccount(a)} aria-expanded={on} className={cls}>
                                             {tile}

@@ -7,7 +7,6 @@ use App\Services\Shell;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\View\View;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
@@ -35,8 +34,8 @@ class AccountsController extends Controller
         $selected = $asked ? $accounts->firstWhere('id', $asked) : null;
 
         if ($selected && $selected['type'] === 'investment') {
-            // Its own page (still a release 1 view until W12): a full load from React.
-            return leave(route('investment', ['account' => $selected['id'], ...$request->only('period')]));
+            // An investment account has its own page.
+            return redirect()->route('investment', ['account' => $selected['id'], ...$request->only('period')]);
         }
         $members = collect($page['members'] ?? [])->keyBy('id');
 
@@ -81,25 +80,135 @@ class AccountsController extends Controller
         ]))->sortByDesc('date')->take(12)->values()->all();
     }
 
-    /** One investment account (W12 comes next; until then the release 1 view). */
-    public function investment(Request $request, int $account): View
+    /**
+     * W12/W12b One investment account: "How is it doing?" Worth, gain and simple return first; the
+     * holdings with the time-weighted return for the month, year to date or since start; Update
+     * values; a holding opens beside the table. A dollar account adds dollars and its rate.
+     */
+    public function investment(Request $request, int $account): Response
     {
         $period = in_array($request->query('period'), ['cycle', 'ytd', 'all'], true) ? $request->query('period') : 'ytd';
+        // One call, to the dashboard's own endpoint (API: Dashboard/AccountsPageController).
         $page = $this->api->json($this->path('accounts'), ['account' => $account, 'period' => $period]);
         $selected = collect($page['accounts'] ?? [])->firstWhere('id', $page['selected_id'] ?? null);
         abort_unless($selected && $selected['type'] === 'investment' && $selected['id'] === $account, 404);
 
-        return view('pages.accounts', [
-            'accounts' => $page['accounts'],
-            'selected' => $selected,
+        return Inertia::render('Investment', [
+            'account' => array_intersect_key($selected, array_flip(['id', 'name', 'visibility', 'currency', 'usd_rate', 'rate_updated_at', 'balance', 'value', 'gain', 'simple_return', 'created_by'])),
             'holdings' => $page['holdings'] ?? [],
-            'returns' => $page['returns'] ?? [],
-            'purposes' => $page['purposes'] ?? [],
-            // The release 1 view names who by a member record.
-            'moves' => array_map(fn (array $m) => [...$m, 'by' => $m['by'] ? ['name' => $m['by']] : null], $this->moves($account, $page, collect($page['members'] ?? [])->keyBy('id'), collect($page['accounts']))),
+            'returns' => (object) ($page['returns'] ?? []),
+            'valuations' => (object) ($page['valuations'] ?? []),
+            'purposes' => array_map(fn (array $p) => ['id' => $p['id'], 'name' => $p['name']], $page['purposes'] ?? []),
             'period' => $period,
-            'summary' => $page['summary'] ?? [],
+            'month' => $page['summary']['cycle']['start'] ?? null,
+            'members' => array_map(fn (array $m) => ['id' => $m['id'], 'name' => $m['name']], $page['members'] ?? []),
         ]);
+    }
+
+    private function holdingPath(int $account, string $rest = ''): string
+    {
+        return $this->path("accounts/$account".($rest === '' ? '' : "/$rest"));
+    }
+
+    public function storeHolding(Request $request, int $account): RedirectResponse
+    {
+        $this->api->ok($this->api->post($this->holdingPath($account, 'holdings'), $request->validate(['name' => ['required', 'string', 'max:100']])));
+
+        return back()->with('saved', 'holding');
+    }
+
+    public function updateHolding(Request $request, int $account, int $holding): RedirectResponse
+    {
+        $this->api->ok($this->api->patch($this->holdingPath($account, "holdings/$holding"), $request->validate(['name' => ['required', 'string', 'max:100']])));
+
+        return back()->with('saved', 'holding');
+    }
+
+    /** Close a holding: each purpose's value goes out as a final withdrawal (the app's rule). */
+    public function destroyHolding(int $account, int $holding): RedirectResponse
+    {
+        $this->api->ok($this->api->delete($this->holdingPath($account, "holdings/$holding")));
+
+        return redirect()->route('investment', ['account' => $account])->with('saved', 'holding-closed');
+    }
+
+    /** Update values: every holding typed, one date, all or nothing. */
+    public function storeValues(Request $request, int $account): RedirectResponse
+    {
+        $data = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+            'values' => ['required', 'array', 'min:1', 'max:100'],
+            'values.*.holding_id' => ['required', 'integer'],
+            'values.*.value' => ['required', 'string', 'max:20'],
+        ]);
+        $this->api->ok($this->api->post($this->holdingPath($account, 'valuations'), $data));
+
+        return back()->with('saved', 'values');
+    }
+
+    public function destroyValue(int $account, int $holding, int $valuation): RedirectResponse
+    {
+        $this->api->ok($this->api->delete($this->holdingPath($account, "holdings/$holding/valuations/$valuation")));
+
+        return back()->with('saved', 'value-deleted');
+    }
+
+    public function movePurpose(Request $request, int $account, int $holding): RedirectResponse
+    {
+        $data = $request->validate([
+            'from_purpose_id' => ['required', 'integer'],
+            'to_purpose_id' => ['nullable', 'integer'],
+            'new_purpose' => ['nullable', 'string', 'max:100'],
+            'amount' => ['required', 'string', 'max:20'],
+            'date' => ['required', 'date_format:Y-m-d'],
+            'holding_value' => ['required', 'string', 'max:20'],
+        ]);
+        $data['to_purpose_id'] = $data['to_purpose_id'] ?? $this->newPurpose($data['new_purpose'] ?? null, 'to_purpose_id');
+        unset($data['new_purpose']);
+        $this->api->ok($this->api->post($this->holdingPath($account, "holdings/$holding/purpose-moves"), $data));
+
+        return back()->with('saved', 'moved');
+    }
+
+    public function updateRate(Request $request, int $account): RedirectResponse
+    {
+        $this->api->ok($this->api->put($this->holdingPath($account, 'rate'), $request->validate(['rate' => ['required', 'string', 'max:20']])));
+
+        return back()->with('saved', 'rate');
+    }
+
+    /**
+     * Add money (outside money) into, or Withdraw from, one holding and purpose. The holding's value
+     * just before goes with it (the app pre-fills it the same way); a new purpose is made first.
+     */
+    public function holdingMoney(Request $request, int $account): RedirectResponse
+    {
+        $data = $request->validate([
+            'type' => ['required', 'in:add,expense'],
+            'holding_id' => ['required', 'integer'],
+            'purpose_id' => ['nullable', 'integer'],
+            'new_purpose' => ['nullable', 'string', 'max:100'],
+            'amount' => ['required', 'string', 'max:20'],
+            'foreign_amount' => ['nullable', 'string', 'max:20'],
+            'holding_value' => ['required', 'string', 'max:20'],
+            'date' => ['required', 'date_format:Y-m-d'],
+            'note' => ['nullable', 'string', 'max:255'],
+        ]);
+        $data['purpose_id'] = $data['purpose_id'] ?? $this->newPurpose($data['type'] === 'add' ? ($data['new_purpose'] ?? null) : null, 'purpose_id');
+        unset($data['new_purpose']);
+        $this->api->ok($this->api->post($this->holdingPath($account, 'transactions'), array_filter($data, fn ($v) => $v !== null)));
+
+        return back()->with('saved', $data['type'] === 'add' ? 'added' : 'withdrawn');
+    }
+
+    /** A new purpose by name (or the field's error when there's neither one nor a name). */
+    private function newPurpose(?string $name, string $field): int
+    {
+        if (! $name || trim($name) === '') {
+            throw \Illuminate\Validation\ValidationException::withMessages([$field => ['Choose what it’s for, or name a new purpose.']]);
+        }
+
+        return (int) $this->api->ok($this->api->post($this->path('purposes'), ['name' => trim($name)]), ['name' => $field])->json('id');
     }
 
     public function store(Request $request): RedirectResponse|SymfonyResponse
@@ -115,7 +224,7 @@ class AccountsController extends Controller
 
         // A new investment goes to its own page (holdings are added there); the rest open beside the tiles.
         return ($created['type'] ?? '') === 'investment'
-            ? leave(route('investment', ['account' => $created['id']]))
+            ? redirect()->route('investment', ['account' => $created['id']])
             : redirect()->route('accounts', ['account' => $created['id']])->with('saved', 'account');
     }
 

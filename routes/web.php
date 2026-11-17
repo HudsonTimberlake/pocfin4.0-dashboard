@@ -78,6 +78,16 @@ Route::middleware(['signed.in', 'idle'])->group(function () {
     Route::get('/accounts', [AccountsController::class, 'show'])->name('accounts');
     // Version 2 Accounts (W11); one investment account has its own page (W12).
     Route::get('/investments/{account}', [AccountsController::class, 'investment'])->whereNumber('account')->name('investment');
+    Route::prefix('/investments/{account}')->whereNumber(['account', 'holding', 'valuation'])->group(function () {
+        Route::post('/holdings', [AccountsController::class, 'storeHolding']);
+        Route::patch('/holdings/{holding}', [AccountsController::class, 'updateHolding']);
+        Route::delete('/holdings/{holding}', [AccountsController::class, 'destroyHolding']);
+        Route::post('/values', [AccountsController::class, 'storeValues']);
+        Route::delete('/holdings/{holding}/values/{valuation}', [AccountsController::class, 'destroyValue']);
+        Route::post('/holdings/{holding}/move', [AccountsController::class, 'movePurpose']);
+        Route::put('/rate', [AccountsController::class, 'updateRate']);
+        Route::post('/money', [AccountsController::class, 'holdingMoney']);
+    });
     Route::post('/accounts', [AccountsController::class, 'store']);
     Route::patch('/accounts/{account}', [AccountsController::class, 'update'])->whereNumber('account');
     Route::delete('/accounts/{account}', [AccountsController::class, 'destroy'])->whereNumber('account');

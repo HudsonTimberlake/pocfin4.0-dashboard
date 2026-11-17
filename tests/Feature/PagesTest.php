@@ -182,7 +182,14 @@ class PagesTest extends TestCase
         // A savings account opens beside the tiles; an investment goes to its own page.
         $this->get('/accounts?account=11')->assertInertia(fn (AssertableInertia $page) => $page->where('open_id', 11));
         $this->get('/accounts?account=12')->assertRedirect(route('investment', ['account' => 12]));
-        $this->get('/investments/12')->assertOk()->assertSee('S&amp;P 500 ETF', false)->assertSee('12.40%')->assertSee('Interest');
+        $this->get('/investments/12')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Investment')
+            ->where('account.id', 12)
+            ->where('holdings.0.name', 'S&P 500 ETF')
+            ->where('returns.21.time_weighted_return', '12.40')
+            ->where('period', 'ytd'));
+        // A savings account isn't an investment page.
+        $this->get('/investments/11')->assertNotFound();
     }
 
     public function test_recaps(): void
