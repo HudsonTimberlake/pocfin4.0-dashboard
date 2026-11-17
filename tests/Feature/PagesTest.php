@@ -127,15 +127,24 @@ class PagesTest extends TestCase
         $this->assertMatchesRegularExpression("/script-src 'self' 'nonce-[A-Za-z0-9]+'/", $response->headers->get('Content-Security-Policy'));
     }
 
-    public function test_budget_table_and_the_chosen_envelope(): void
+    public function test_budget_is_react_with_the_chosen_envelopes_activity(): void
     {
         $this->fakeBudget();
 
         $this->signedIn()->get('/budget?envelope=1')->assertOk()
-            ->assertSee('Everyday')->assertSee('Saving up')
-            ->assertSee('−R180.40')
-            ->assertSee('R4,508.65')
-            ->assertSee('Allocated');
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('Budget')
+                ->where('open_id', 1)
+                ->where('envelopes.0.spent_this_cycle', '4508.65')
+                ->has('activity', 3)
+                ->where('activity.0.kind', 'spent')
+                ->where('activity.2.kind', 'allocated')
+                ->where('shared', true)
+                ->where('summary.unallocated', fn ($v) => is_string($v)));
+
+        // Without ?envelope= the panel stays closed (the API still picks one for itself).
+        $this->signedIn()->get('/budget')->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page->component('Budget')->where('open_id', null)->has('activity', 0));
     }
 
     public function test_history_search_never_goes_in_the_address(): void

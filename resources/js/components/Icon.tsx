@@ -34,6 +34,11 @@ const PATHS = {
     plus: 'M12 5v14M5 12h14',
     pen: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4',
     move: 'M7 7h12l-3-3M17 17H5l3 3',
+    refund: 'M9 14l-4-4 4-4M5 10h9a5 5 0 0 1 0 10h-3',
+    grip: 'M9 6v.1M15 6v.1M9 12v.1M15 12v.1M9 18v.1M15 18v.1',
+    search: 'M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14M16.5 16.5L21 21',
+    archive: 'M3 5h18v4H3zM5 9v11h14V9M10 13h4',
+    trash: 'M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6',
 } as const;
 
 export type IconName = keyof typeof PATHS;

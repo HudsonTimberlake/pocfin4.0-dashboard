@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import RecentRow from '@/components/RecentRow';
 import { useApp } from '@/lib/app';
 import Bar from '@/components/Bar';
@@ -67,9 +67,16 @@ function Section({ title, link, children }: { title: string; link?: { href: stri
                     {title}
                 </h2>
                 {link ? (
-                    <a href={link.href} className="text-[14.5px] font-bold text-teal hover:underline">
-                        {link.label}
-                    </a>
+                    // Pages already in React swap in place; the rest are still release 1 (a full load).
+                    link.href === '/budget' ? (
+                        <Link href={link.href} className="text-[14.5px] font-bold text-teal hover:underline">
+                            {link.label}
+                        </Link>
+                    ) : (
+                        <a href={link.href} className="text-[14.5px] font-bold text-teal hover:underline">
+                            {link.label}
+                        </a>
+                    )
                 ) : null}
             </div>
             {children}

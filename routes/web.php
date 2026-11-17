@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BudgetController;
+use App\Http\Controllers\EnvelopeController;
 use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\MoneyController;
@@ -46,6 +47,11 @@ Route::middleware(['signed.in', 'idle'])->group(function () {
     Route::post('/money/moves', [MoneyController::class, 'storeMove'])->name('money.move');
     Route::post('/money/accounts/{account}/expenses', [MoneyController::class, 'storeAccountExpense'])->whereNumber('account');
     Route::get('/budget', [BudgetController::class, 'show'])->name('budget');
+    // Version 2 Budget writes (W6/W7).
+    Route::post('/envelopes', [EnvelopeController::class, 'store'])->name('envelopes.store');
+    Route::put('/envelopes/order', [EnvelopeController::class, 'reorder'])->name('envelopes.order');
+    Route::patch('/envelopes/{envelope}', [EnvelopeController::class, 'update'])->whereNumber('envelope');
+    Route::delete('/envelopes/{envelope}', [EnvelopeController::class, 'destroy'])->whereNumber('envelope');
     Route::get('/history', [HistoryController::class, 'show'])->name('history');
     // Search words and filters are posted and kept in the session, never put in the address.
     Route::post('/history', [HistoryController::class, 'filter']);

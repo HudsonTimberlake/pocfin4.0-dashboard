@@ -14,7 +14,7 @@ type Item = { key: string; label: string; href: string; icon: IconName; spa?: bo
 // load in full. Pages not built yet stay out of the menu until they work.
 const MONEY: Item[] = [
     { key: 'overview', label: 'Overview', href: '/', icon: 'overview', spa: true },
-    { key: 'budget', label: 'Budget', href: '/budget', icon: 'budget' },
+    { key: 'budget', label: 'Budget', href: '/budget', icon: 'budget', spa: true },
     { key: 'history', label: 'History', href: '/history', icon: 'history' },
     { key: 'accounts', label: 'Accounts', href: '/accounts', icon: 'accounts' },
     { key: 'recaps', label: 'Recaps', href: '/recaps', icon: 'recaps' },
@@ -393,7 +393,7 @@ export default function Shell({ active, title, children }: { active: string; tit
                         </div>
                         <motion.main
                             id="main"
-                            key={url}
+                            key={url.split('?')[0]}
                             initial={reduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
                             animate={reduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
                             transition={{ duration: 0.2, ease: ARRIVE }}

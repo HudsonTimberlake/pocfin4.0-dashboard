@@ -21,7 +21,8 @@ $day = fn (int $ago) => date('Y-m-d', strtotime("-$ago days"));
 
 function fresh(callable $day): array
 {
-    $env = fn ($id, $name, $bal, $target, $spent, $kind = 'everyday') => compact('id', 'name', 'kind') + ['balance' => $bal, 'target' => $target, 'spent' => $spent];
+    $alloc = [1 => 600000, 2 => 100000, 3 => 150000, 4 => 100000, 5 => 850000, 6 => 100000, 7 => 60000, 8 => 50000, 9 => 50000, 10 => 100000];
+    $env = fn ($id, $name, $bal, $target, $spent, $kind = 'everyday') => compact('id', 'name', 'kind') + ['balance' => $bal, 'target' => $target, 'spent' => $spent, 'alloc' => $alloc[$id], 'icon' => null, 'archived' => false, 'sort' => $id];
 
     return [
         'seq' => 100,
@@ -122,7 +123,48 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts/(\d+)/transactions$#', $
     return $answer(['id' => ++$state['seq'], 'amount' => $body['amount']], 201);
 }
 
-$envelopes = array_map(fn ($e) => ['id' => $e['id'], 'name' => $e['name'], 'icon' => null, 'budgeted_amount' => $s($e['target']), 'kind' => $e['kind'], 'balance' => $s($e['balance']), 'sort_order' => $e['id'], 'archived' => false, 'built_up_snoozed_through' => null], $state['envelopes']);
+// Budget page writes (W6/W7): new envelope, change (name, icon, monthly, kind, archived), order, delete.
+$amountOk = fn ($a) => is_string($a) && preg_match('/^\d{1,10}(\.\d{1,2})?$/', $a);
+if (preg_match('#^/api/dashboard/budgets/(\d+)/envelopes$#', $path) && $method === 'POST') {
+    if (trim((string) ($body['name'] ?? '')) === '') { return $fail('name', 'The name field is required.'); }
+    if (isset($body['budgeted_amount']) && ! $amountOk($body['budgeted_amount'])) { return $fail('budgeted_amount', 'The budgeted amount field format is invalid.'); }
+    $id = ++$state['seq'];
+    $e = ['id' => $id, 'name' => trim($body['name']), 'kind' => $body['kind'] ?? 'everyday', 'balance' => 0, 'target' => $c($body['budgeted_amount'] ?? '0'), 'spent' => 0, 'alloc' => 0, 'icon' => $body['icon'] ?? null, 'archived' => false, 'sort' => max(array_column($state['envelopes'], 'sort')) + 1];
+    $state['envelopes'][] = $e;
+    $save();
+    return $answer(['id' => $id, 'name' => $e['name']], 201);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/envelopes/order$#', $path) && $method === 'PUT') {
+    $ids = array_map('intval', $body['ids'] ?? []);
+    $all = array_column($state['envelopes'], 'id');
+    $a = $ids; sort($a); sort($all);
+    if ($a !== $all) { return $fail('ids', 'List every envelope in this budget exactly once.'); }
+    foreach ($state['envelopes'] as &$e) { $e['sort'] = array_search($e['id'], $ids, true); }
+    unset($e);
+    $save();
+    return $answer([]);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/envelopes/(\d+)$#', $path, $m)) {
+    $i = array_search((int) $m[2], array_column($state['envelopes'], 'id'), true);
+    if ($i === false) { return $answer(['message' => 'Not found.'], 404); }
+    if ($method === 'DELETE') {
+        if ($state['envelopes'][$i]['balance'] !== 0) { return $fail('envelope', 'Only an envelope with a zero balance can be deleted. Move its money out first, or archive it instead.'); }
+        array_splice($state['envelopes'], $i, 1);
+        $save();
+        return $answer(null, 204);
+    }
+    if (array_key_exists('name', $body) && trim((string) $body['name']) === '') { return $fail('name', 'The name field is required.'); }
+    if (array_key_exists('budgeted_amount', $body) && ! $amountOk($body['budgeted_amount'])) { return $fail('budgeted_amount', 'The budgeted amount field format is invalid.'); }
+    $e = &$state['envelopes'][$i];
+    foreach (['name', 'icon', 'kind', 'archived'] as $k) { if (array_key_exists($k, $body)) { $e[$k] = $body[$k]; } }
+    if (isset($body['budgeted_amount'])) { $e['target'] = $c($body['budgeted_amount']); }
+    unset($e);
+    $save();
+    return $answer(['id' => (int) $m[2]]);
+}
+
+usort($state['envelopes'], fn ($a, $b) => ($a['sort'] ?? $a['id']) <=> ($b['sort'] ?? $b['id']));
+$envelopes = array_map(fn ($e) => ['id' => $e['id'], 'name' => $e['name'], 'icon' => $e['icon'] ?? null, 'budgeted_amount' => $s($e['target']), 'kind' => $e['kind'], 'balance' => $s($e['balance']), 'sort_order' => $e['sort'] ?? $e['id'], 'archived' => (bool) ($e['archived'] ?? false), 'built_up_snoozed_through' => null], $state['envelopes']);
 $left = array_sum(array_column($state['envelopes'], 'balance'));
 $spent = array_sum(array_column($state['envelopes'], 'spent'));
 $byId = array_column($state['envelopes'], null, 'id');
@@ -149,6 +191,29 @@ $overview = [
     'goals' => [['id' => 1, 'name' => 'Emergency fund', 'status' => 'active', 'state' => 'waiting'], ['id' => 2, 'name' => 'Tax-free top-up', 'status' => 'active', 'state' => 'on_track'], ['id' => 3, 'name' => 'Retire at 65', 'status' => 'active', 'state' => 'on_track'], ['id' => 4, 'name' => 'Car deposit', 'status' => 'active', 'state' => 'on_track']],
     'automatic_ready' => [['id' => 1, 'name' => 'Netflix', 'amount' => '199.00']],
 ];
+
+// The Budget page: live envelopes with this month's figures, archived ones, and one envelope's activity.
+if (preg_match('#^/api/dashboard/budgets/(\d+)/budget$#', $path)) {
+    $refunds = [];
+    foreach ($state['expenses'] as $x) { if ($x['refund']) { $refunds[$x['envelope_id']] = ($refunds[$x['envelope_id']] ?? 0) + $x['amount']; } }
+    $live = array_values(array_filter($envelopes, fn ($e) => ! $e['archived']));
+    $live = array_map(fn ($e) => [...$e, 'allocated_this_cycle' => $s($byId[$e['id']]['alloc'] ?? 0), 'spent_this_cycle' => $s($byId[$e['id']]['spent']), 'refunded_this_cycle' => $s($refunds[$e['id']] ?? 0)], $live);
+    $asked = (int) ($_GET['envelope'] ?? 0);
+    $sel = in_array($asked, array_column($live, 'id'), true) ? $asked : ($live[0]['id'] ?? null);
+    $alloc = $sel ? ($byId[$sel]['alloc'] ?? 0) : 0;
+    return $answer([
+        'summary' => $overview['summary'],
+        'envelopes' => $live,
+        'archived' => array_values(array_filter($envelopes, fn ($e) => $e['archived'])),
+        'left_from' => $overview['left_from'],
+        'selected_id' => $sel,
+        'activity' => $sel ? [
+            'spent' => array_map($shapeExpense, array_values(array_filter($state['expenses'], fn ($x) => $x['envelope_id'] === $sel))),
+            'allocated' => $alloc ? [['id' => 900 + $sel, 'deposit_id' => 40, 'envelope_id' => $sel, 'account_id' => null, 'amount' => $s($alloc), 'date' => date('Y-m-01'), 'deposit_note' => 'Salary', 'created_by' => 7]] : [],
+            'members' => $overview['members'],
+        ] : null,
+    ]);
+}
 
 $routes = [
     '/api/login' => ['token' => '1|fake', 'expires_at' => null, 'user' => ['id' => 7, 'name' => 'Hudson', 'email' => 'demo@example.com', 'verified' => true, 'is_admin' => false]],
