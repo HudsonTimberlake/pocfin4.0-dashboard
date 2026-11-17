@@ -191,6 +191,10 @@ export default function Budget(p: Props) {
                             {rows.length} {rows.length === 1 ? 'envelope' : 'envelopes'} · {formatMoney(p.summary.left_to_spend)} left to spend
                         </p>
                     </div>
+                    <Link href="/budget/edit" className="flex h-11 items-center gap-2 rounded-[14px] bg-card px-4 text-[15px] font-extrabold transition-transform hover:bg-segment active:scale-[0.97]">
+                        <Icon name="pen" size={16} stroke={2.2} />
+                        Edit envelopes
+                    </Link>
                     <button type="button" onClick={() => setAdding('everyday')} className="flex h-11 items-center gap-2 rounded-[14px] bg-card px-4 text-[15px] font-extrabold transition-transform hover:bg-segment active:scale-[0.97]">
                         <Icon name="plus" size={16} stroke={2.4} />
                         New envelope

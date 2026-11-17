@@ -28,6 +28,11 @@ function fresh(callable $day): array
         'seq' => 100,
         'unallocated' => 125000,
         'fill_mode' => 'top_up',
+        'income' => '22850.00',
+        'plans' => [
+            ['id' => 1, 'name' => 'Tight month', 'amounts' => ['1' => '5000.00', '2' => '400.00', '3' => '1600.00', '4' => '900.00', '5' => '8500.00', '6' => '1000.00', '7' => '0.00', '8' => '300.00', '9' => '500.00', '10' => '500.00'], 'updated_at' => date('c')],
+            ['id' => 2, 'name' => 'December', 'amounts' => ['1' => '7000.00', '2' => '2000.00', '3' => '2400.00', '4' => '1000.00', '5' => '8500.00', '6' => '1000.00', '7' => '500.00', '8' => '500.00', '9' => '0.00', '10' => '0.00'], 'updated_at' => date('c')],
+        ],
         'refunded' => 34900,
         'envelopes' => [
             $env(1, 'Groceries', 149135, 600000, 450865), $env(2, 'Eating out', -18040, 120000, 138040), $env(3, 'Petrol', 62000, 200000, 138000),
@@ -190,6 +195,52 @@ if ($path === '/api/user' && $method === 'PATCH') {
     return $answer(['id' => 7, 'name' => 'Hudson', 'fill_mode' => $state['fill_mode']]);
 }
 
+// Edit envelopes (W9): one Save, all or nothing; plans.
+if (preg_match('#^/api/dashboard/budgets/(\d+)/edit-envelopes$#', $path) && $method === 'POST') {
+    foreach (['create', 'update'] as $part) {
+        foreach (array_values($body[$part] ?? []) as $i => $item) {
+            if (array_key_exists('name', $item) && trim((string) $item['name']) === '') { return $fail("$part.$i.name", 'The name field is required.'); }
+            if (array_key_exists('budgeted_amount', $item) && ! $amountOk($item['budgeted_amount'])) { return $fail("$part.$i.budgeted_amount", 'The budgeted amount field format is invalid.'); }
+        }
+    }
+    if (array_key_exists('monthly_income', $body) && $body['monthly_income'] !== null && ! $amountOk($body['monthly_income'])) { return $fail('monthly_income', 'The monthly income field format is invalid.'); }
+    $created = [];
+    foreach (array_values($body['create'] ?? []) as $i => $item) {
+        $id = ++$state['seq'];
+        $state['envelopes'][] = ['id' => $id, 'name' => trim($item['name']), 'kind' => $item['kind'] ?? 'everyday', 'balance' => 0, 'target' => $c($item['budgeted_amount'] ?? '0'), 'spent' => 0, 'alloc' => 0, 'icon' => null, 'archived' => false, 'sort' => 999 + $i];
+        $created[$i] = $id;
+    }
+    foreach ($body['update'] ?? [] as $item) {
+        foreach ($state['envelopes'] as &$e) {
+            if ($e['id'] !== (int) $item['id']) { continue; }
+            if (isset($item['name'])) { $e['name'] = trim($item['name']); }
+            if (isset($item['kind'])) { $e['kind'] = $item['kind']; }
+            if (isset($item['budgeted_amount'])) { $e['target'] = $c($item['budgeted_amount']); }
+        }
+        unset($e);
+    }
+    if (isset($body['order'])) {
+        $ids = array_map(fn ($x) => str_starts_with($x, 'new:') ? $created[(int) substr($x, 4)] : (int) $x, $body['order']);
+        foreach ($state['envelopes'] as &$e) { $at = array_search($e['id'], $ids, true); $e['sort'] = $at === false ? 1000 + $e['id'] : $at; }
+        unset($e);
+    }
+    if (array_key_exists('monthly_income', $body)) { $state['income'] = $body['monthly_income']; }
+    $save();
+    return $answer(['created' => array_values($created)]);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/envelope-plans$#', $path) && $method === 'POST') {
+    if (trim((string) ($body['name'] ?? '')) === '') { return $fail('name', 'The name field is required.'); }
+    $plan = ['id' => ++$state['seq'], 'name' => trim($body['name']), 'amounts' => $body['amounts'] ?? [], 'updated_at' => date('c')];
+    array_unshift($state['plans'], $plan);
+    $save();
+    return $answer($plan, 201);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/envelope-plans/(\d+)$#', $path, $m) && $method === 'DELETE') {
+    $state['plans'] = array_values(array_filter($state['plans'], fn ($p) => $p['id'] !== (int) $m[2]));
+    $save();
+    return $answer(null, 204);
+}
+
 usort($state['envelopes'], fn ($a, $b) => ($a['sort'] ?? $a['id']) <=> ($b['sort'] ?? $b['id']));
 $envelopes = array_map(fn ($e) => ['id' => $e['id'], 'name' => $e['name'], 'icon' => $e['icon'] ?? null, 'budgeted_amount' => $s($e['target']), 'kind' => $e['kind'], 'balance' => $s($e['balance']), 'sort_order' => $e['sort'] ?? $e['id'], 'archived' => (bool) ($e['archived'] ?? false), 'built_up_snoozed_through' => null], $state['envelopes']);
 $left = array_sum(array_column($state['envelopes'], 'balance'));
@@ -232,6 +283,10 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/allocate$#', $path)) {
         'goals' => empty($state['goal_paid']) ? [['id' => 1, 'name' => 'Emergency fund', 'status' => 'active', 'remind_on_payday' => true, 'account_id' => 11, 'purpose_id' => null, 'this_cycle' => ['start' => date('Y-m-01'), 'end' => date('Y-m-t'), 'needed' => '500.00', 'in' => '0.00', 'left' => '500.00', 'status' => 'waiting']]] : [],
         'fill_mode' => $state['fill_mode'] ?? 'top_up',
     ]);
+}
+
+if (preg_match('#^/api/dashboard/budgets/(\d+)/edit-envelopes$#', $path)) {
+    return $answer(['monthly_income' => $state['income'] ?? '22850.00', 'can_change_income' => true, 'envelopes' => $envelopes, 'plans' => $state['plans'] ?? []]);
 }
 
 // The Budget page: live envelopes with this month's figures, archived ones, and one envelope's activity.
