@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AccountsController;
 use App\Http\Controllers\AllocateController;
+use App\Http\Controllers\AutomaticController;
 use App\Http\Controllers\Admin\LogController as AdminLogController;
 use App\Http\Controllers\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
@@ -66,6 +67,13 @@ Route::middleware(['signed.in', 'idle'])->group(function () {
     Route::put('/goals/{goal}', [GoalsController::class, 'update'])->whereNumber('goal');
     Route::delete('/goals/{goal}', [GoalsController::class, 'destroy'])->whereNumber('goal');
     Route::post('/goals/{goal}/{action}', [GoalsController::class, 'act'])->whereNumber('goal')->whereIn('action', ['finish', 'snooze', 'reviewed']);
+    // Version 2 Automatic (W14).
+    Route::get('/automatic', [AutomaticController::class, 'show'])->name('automatic');
+    Route::post('/automatic', [AutomaticController::class, 'store']);
+    Route::patch('/automatic/{item}', [AutomaticController::class, 'update'])->whereNumber('item');
+    Route::delete('/automatic/{item}', [AutomaticController::class, 'destroy'])->whereNumber('item');
+    Route::post('/automatic/{item}/{action}', [AutomaticController::class, 'toggle'])->whereNumber('item')->whereIn('action', ['pause', 'resume']);
+    Route::post('/automatic/{item}/runs/{run}/{action}', [AutomaticController::class, 'run'])->whereNumber(['item', 'run'])->whereIn('action', ['approve', 'run-now', 'skip']);
     // Version 2 Allocate (W8): staged in the browser, sent together.
     Route::get('/allocate', [AllocateController::class, 'show'])->name('allocate');
     Route::post('/allocate/{deposit}', [AllocateController::class, 'store'])->whereNumber('deposit');

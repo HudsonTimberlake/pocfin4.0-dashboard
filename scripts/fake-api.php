@@ -485,6 +485,88 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/edit-envelopes$#', $path)) {
     return $answer(['monthly_income' => $state['income'] ?? '22850.00', 'can_change_income' => true, 'envelopes' => $envelopes, 'plans' => $state['plans'] ?? []]);
 }
 
+// Automatic (W14): the board's six payments with their runs; approving, running, skipping, editing.
+$dd = fn (int $day, int $monthOffset = 0) => date('Y-m-d', mktime(0, 0, 0, (int) date('n') + $monthOffset, $day, (int) date('Y')));
+$state['auto'] ??= [
+    ['id' => 1, 'name' => 'Netflix', 'type' => 'expense', 'from' => ['e', 8], 'to' => null, 'amount' => '199.00', 'repeat' => 'monthly', 'day' => 9, 'last_day' => false, 'weekday' => null, 'mode' => 'approve', 'paused' => false, 'pause_reason' => null, 'next_due' => $dd(9, 1), 'created_by' => 8,
+        'runs' => [['id' => 11, 'due_date' => date('Y-m-d'), 'status' => 'ready', 'amount' => '199.00', 'attempts' => 1, 'reason' => null, 'resolved_by' => null], ['id' => 12, 'due_date' => $dd(9, -1), 'status' => 'done', 'amount' => '199.00', 'attempts' => 1, 'reason' => null, 'resolved_by' => 8], ['id' => 13, 'due_date' => $dd(9, -2), 'status' => 'done', 'amount' => '199.00', 'attempts' => 1, 'reason' => null, 'resolved_by' => 8]]],
+    ['id' => 2, 'name' => 'Cellphone contract', 'type' => 'expense', 'from' => ['e', 6], 'to' => null, 'amount' => '349.00', 'repeat' => 'monthly', 'day' => 7, 'last_day' => false, 'weekday' => null, 'mode' => 'auto', 'paused' => false, 'pause_reason' => null, 'next_due' => $dd(7, 1), 'created_by' => 7,
+        'runs' => [['id' => 21, 'due_date' => date('Y-m-d', strtotime('-2 days')), 'status' => 'waiting', 'amount' => '349.00', 'attempts' => 3, 'reason' => null, 'resolved_by' => null], ['id' => 22, 'due_date' => $dd(7, -1), 'status' => 'done', 'amount' => '349.00', 'attempts' => 1, 'reason' => null, 'resolved_by' => null], ['id' => 23, 'due_date' => $dd(7, -2), 'status' => 'done', 'amount' => '349.00', 'attempts' => 1, 'reason' => null, 'resolved_by' => null], ['id' => 24, 'due_date' => $dd(7, -3), 'status' => 'skipped', 'amount' => '349.00', 'attempts' => 4, 'reason' => 'short', 'resolved_by' => null]]],
+    ['id' => 3, 'name' => 'Rent', 'type' => 'expense', 'from' => ['e', 5], 'to' => null, 'amount' => '8500.00', 'repeat' => 'monthly', 'day' => 1, 'last_day' => false, 'weekday' => null, 'mode' => 'auto', 'paused' => false, 'pause_reason' => null, 'next_due' => $dd(1, 1), 'created_by' => 7,
+        'runs' => [['id' => 31, 'due_date' => $dd(1), 'status' => 'done', 'amount' => '8500.00', 'attempts' => 1, 'reason' => null, 'resolved_by' => null], ['id' => 32, 'due_date' => $dd(1, -1), 'status' => 'done', 'amount' => '8500.00', 'attempts' => 1, 'reason' => null, 'resolved_by' => null]]],
+    ['id' => 4, 'name' => 'Emergency fund top-up', 'type' => 'transfer', 'from' => ['e', 8], 'to' => ['a', 11], 'amount' => '500.00', 'repeat' => 'monthly', 'day' => 25, 'last_day' => false, 'weekday' => null, 'mode' => 'auto', 'paused' => false, 'pause_reason' => null, 'next_due' => $dd(25, date('j') >= 25 ? 1 : 0), 'created_by' => 7,
+        'runs' => [['id' => 41, 'due_date' => $dd(25, -1), 'status' => 'done', 'amount' => '500.00', 'attempts' => 1, 'reason' => null, 'resolved_by' => null]]],
+    ['id' => 5, 'name' => 'Petrol card', 'type' => 'expense', 'from' => ['e', 3], 'to' => null, 'amount' => '250.00', 'repeat' => 'weekly', 'day' => null, 'last_day' => false, 'weekday' => 5, 'mode' => 'auto', 'paused' => false, 'pause_reason' => null, 'next_due' => date('Y-m-d', strtotime('next friday')), 'created_by' => 7,
+        'runs' => [['id' => 51, 'due_date' => date('Y-m-d', strtotime('last friday')), 'status' => 'done', 'amount' => '250.00', 'attempts' => 1, 'reason' => null, 'resolved_by' => null]]],
+    ['id' => 6, 'name' => 'Kids’ swimming', 'type' => 'expense', 'from' => ['e', 8], 'to' => null, 'amount' => '380.00', 'repeat' => 'monthly', 'day' => 15, 'last_day' => false, 'weekday' => null, 'mode' => 'approve', 'paused' => true, 'pause_reason' => null, 'next_due' => null, 'created_by' => 8,
+        'runs' => [['id' => 61, 'due_date' => $dd(15, -1), 'status' => 'done', 'amount' => '380.00', 'attempts' => 1, 'reason' => null, 'resolved_by' => 8], ['id' => 62, 'due_date' => $dd(15, -2), 'status' => 'declined', 'amount' => '380.00', 'attempts' => 1, 'reason' => null, 'resolved_by' => 8]]],
+];
+$placeOf = function (?array $ref) use (&$state) {
+    if (! $ref) { return null; }
+    $list = $ref[0] === 'e' ? $state['envelopes'] : $state['accounts'];
+    $x = current(array_filter($list, fn ($p) => $p['id'] === $ref[1]));
+    return ['id' => $ref[1], 'name' => $x['name'] ?? 'Removed', 'kind' => $ref[0] === 'e' ? 'envelope' : 'account', 'deleted' => ! $x, 'balance' => $x['balance'] ?? 0];
+};
+$shapeAuto = function (array $i, bool $withRuns = false) use ($placeOf, $s) {
+    $open = current(array_filter($i['runs'], fn ($r) => in_array($r['status'], ['waiting', 'ready'], true))) ?: null;
+    $from = $placeOf($i['from']);
+    $run = fn ($r) => $r + ['transaction_id' => null, 'resolved_at' => null];
+    return ['id' => $i['id'], 'name' => $i['name'], 'type' => $i['type'], 'from' => array_diff_key($from, ['balance' => 1]), 'to' => $i['to'] ? array_diff_key($placeOf($i['to']), ['balance' => 1]) : null,
+        'amount' => $i['amount'], 'note' => null, 'repeat' => $i['repeat'], 'day' => $i['day'], 'last_day' => $i['last_day'], 'weekday' => $i['weekday'], 'starts_on' => date('Y-m-01', strtotime('-6 months')), 'ends_on' => $i['ends_on'] ?? null,
+        'mode' => $i['mode'], 'paused' => $i['paused'], 'pause_reason' => $i['pause_reason'], 'next_due' => $i['paused'] ? null : $i['next_due'], 'created_by' => $i['created_by'],
+        'open_run' => $open ? $run($open) + ['source_balance' => $s($from['balance']), 'last_try' => $open['status'] === 'waiting' ? date('Y-m-d', strtotime($open['due_date'].' +3 days')) : null] : null,
+    ] + ($withRuns ? ['runs' => array_map($run, $i['runs'])] : []);
+};
+if (preg_match('#^/api/dashboard/budgets/(\d+)/automatic(/(\d+)(/(pause|resume)|/runs/(\d+)/(approve|run-now|skip))?)?$#', $path, $m) && $method !== 'GET') {
+    $id = (int) ($m[3] ?? 0);
+    if (! $id) {
+        if (trim((string) ($body['name'] ?? '')) === '') { return $fail('name', 'The name field is required.'); }
+        if (! $amountOk($body['amount'] ?? '')) { return $fail('amount', 'The amount field is required.'); }
+        if (($body['repeat'] ?? '') === 'monthly' && empty($body['day']) && empty($body['last_day'])) { return $fail('day', 'Choose the day of the month.'); }
+        if (($body['repeat'] ?? '') === 'weekly' && ! isset($body['weekday'])) { return $fail('weekday', 'Choose the day of the week.'); }
+        $ref = fn ($side) => ! empty($body["{$side}_envelope_id"]) ? ['e', (int) $body["{$side}_envelope_id"]] : (! empty($body["{$side}_account_id"]) ? ['a', (int) $body["{$side}_account_id"]] : null);
+        if (! $ref('from')) { return $fail('from_envelope_id', 'Choose where it comes from.'); }
+        if ($body['type'] === 'transfer' && ! $ref('to')) { return $fail('to_envelope_id', 'Choose where it goes.'); }
+        $next = $body['repeat'] === 'weekly' ? date('Y-m-d', strtotime('next '.['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][(int) $body['weekday']])) : (! empty($body['last_day']) ? date('Y-m-t') : $dd((int) $body['day'], (int) $body['day'] <= (int) date('j') ? 1 : 0));
+        $state['auto'][] = ['id' => ++$state['seq'], 'name' => trim($body['name']), 'type' => $body['type'], 'from' => $ref('from'), 'to' => $body['type'] === 'transfer' ? $ref('to') : null, 'amount' => $body['amount'], 'repeat' => $body['repeat'], 'day' => $body['day'] ?? null, 'last_day' => (bool) ($body['last_day'] ?? false), 'weekday' => $body['weekday'] ?? null, 'mode' => $body['mode'], 'paused' => false, 'pause_reason' => null, 'next_due' => $next, 'created_by' => 7, 'runs' => []];
+        $save();
+        return $answer($shapeAuto(end($state['auto'])), 201);
+    }
+    $k = array_search($id, array_column($state['auto'], 'id'), true);
+    if ($k === false) { return $answer(['message' => 'Not found.'], 404); }
+    $i = &$state['auto'][$k];
+    if ($method === 'DELETE') { unset($i); array_splice($state['auto'], $k, 1); $save(); return $answer(null, 204); }
+    if (! empty($m[5])) { $i['paused'] = $m[5] === 'pause'; $out = $shapeAuto($i); unset($i); $save(); return $answer($out); }
+    if (! empty($m[7])) {
+        $r = array_search((int) $m[6], array_column($i['runs'], 'id'), true);
+        if ($r === false || ! in_array($i['runs'][$r]['status'], ['waiting', 'ready'], true)) { return $fail('run', 'This one has already been handled.'); }
+        if ($m[7] === 'skip') { $i['runs'][$r]['status'] = 'declined'; $i['runs'][$r]['resolved_by'] = 7; }
+        else {
+            $amt = $body['amount'] ?? $i['runs'][$r]['amount'];
+            $from = $placeOf($i['from']);
+            if ($m[7] === 'run-now' && $from['balance'] < $c($amt) && empty($body['overspend'])) { return $fail('overspend', $from['name'].' has '.$s($from['balance']).' and this needs '.$amt.'.'); }
+            $i['runs'][$r] = array_replace($i['runs'][$r], ['status' => 'done', 'amount' => $amt, 'resolved_by' => 7]);
+            foreach ($state['envelopes'] as &$e) { if ($i['from'][0] === 'e' && $e['id'] === $i['from'][1]) { $e['balance'] -= $c($amt); $e['spent'] += $i['type'] === 'expense' ? $c($amt) : 0; } }
+            unset($e);
+        }
+        $out = $i['runs'][$r] + ['transaction_id' => null, 'resolved_at' => date('c')];
+        unset($i); $save();
+        return $answer($out);
+    }
+    if (isset($body['amount']) && ! $amountOk($body['amount'])) { return $fail('amount', 'The amount field format is invalid.'); }
+    foreach (['name', 'amount', 'repeat', 'day', 'last_day', 'weekday', 'mode', 'ends_on'] as $f) { if (array_key_exists($f, $body)) { $i[$f] = $body[$f]; } }
+    $out = $shapeAuto($i); unset($i); $save();
+    return $answer($out);
+}
+$autoList = array_map($shapeAuto, $state['auto']);
+$autoReady = array_values(array_filter($autoList, fn ($i) => ($i['open_run']['status'] ?? null) === 'ready'));
+if (preg_match('#^/api/dashboard/budgets/(\d+)/automatic$#', $path)) {
+    $asked = (int) ($_GET['item'] ?? 0);
+    $sel = current(array_filter($state['auto'], fn ($i) => $i['id'] === $asked)) ?: null;
+    return $answer(['data' => $autoList, 'ready' => $autoReady, 'ready_count' => count($autoReady), 'selected' => $sel ? $shapeAuto($sel, true) : null,
+        'envelopes' => $envelopes, 'accounts' => array_values(array_filter($accounts, fn ($a) => $a['type'] !== 'investment')), 'members' => $overview['members']]);
+}
+
 // Goals (W13): the boards' four goals and two past ones, shaped like the API's goal report.
 $m0 = date('Y-m-01');
 $mAgo = fn (int $n) => date('Y-m-01', strtotime("$m0 -$n months"));
@@ -662,7 +744,7 @@ $routes = [
         ['id' => 3, 'name' => 'Our home', 'currency' => 'ZAR', 'cycle_start_day' => 1, 'role' => 'owner', 'premium' => ['active' => true], 'paused' => false],
         ['id' => 4, 'name' => 'Holiday house', 'currency' => 'ZAR', 'cycle_start_day' => 1, 'role' => 'member', 'premium' => ['active' => false], 'paused' => false],
     ],
-    '/api/dashboard/budgets/3/overview' => $overview,
+    '/api/dashboard/budgets/3/overview' => array_replace($overview, ['automatic_ready' => array_map(fn ($i) => ['id' => $i['id'], 'name' => $i['name'], 'amount' => $i['open_run']['amount']], $autoReady)]),
     '/api/dashboard/budgets/4/overview' => array_replace($overview, ['automatic_ready' => [], 'summary' => array_replace($overview['summary'], ['unallocated' => '0.00', 'overspent' => [], 'left_to_spend' => '3120.00'])]),
     '/api/dashboard/budgets/3/add' => [
         'envelopes' => $envelopes,

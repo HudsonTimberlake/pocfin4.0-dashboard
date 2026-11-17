@@ -165,7 +165,7 @@ export default function Overview(p: Props) {
         });
     }
     for (const a of p.automatic_ready ?? []) {
-        needs.push({ key: `auto-${a.id}`, icon: 'automatic', tone: 'amber', title: `${a.name} is ready to approve`, sub: `Automatic · ${formatMoney(a.amount)}` });
+        needs.push({ key: `auto-${a.id}`, icon: 'automatic', tone: 'amber', title: `${a.name} is ready to approve`, sub: `Automatic · ${formatMoney(a.amount)}`, action: { label: 'Review', run: () => router.visit(`/automatic?item=${a.id}`) } });
     }
 
     // Envelopes: the month's top categories with what's left and how much of the plan is used.
