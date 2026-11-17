@@ -10,6 +10,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\EditEnvelopesController;
 use App\Http\Controllers\EnvelopeController;
+use App\Http\Controllers\GoalsController;
 use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\MoneyController;
@@ -59,6 +60,12 @@ Route::middleware(['signed.in', 'idle'])->group(function () {
     Route::post('/budget/edit', [EditEnvelopesController::class, 'save']);
     Route::post('/budget/plans', [EditEnvelopesController::class, 'storePlan']);
     Route::delete('/budget/plans/{plan}', [EditEnvelopesController::class, 'destroyPlan'])->whereNumber('plan');
+    // Version 2 Goals (W13).
+    Route::get('/goals', [GoalsController::class, 'show'])->name('goals');
+    Route::post('/goals', [GoalsController::class, 'store']);
+    Route::put('/goals/{goal}', [GoalsController::class, 'update'])->whereNumber('goal');
+    Route::delete('/goals/{goal}', [GoalsController::class, 'destroy'])->whereNumber('goal');
+    Route::post('/goals/{goal}/{action}', [GoalsController::class, 'act'])->whereNumber('goal')->whereIn('action', ['finish', 'snooze', 'reviewed']);
     // Version 2 Allocate (W8): staged in the browser, sent together.
     Route::get('/allocate', [AllocateController::class, 'show'])->name('allocate');
     Route::post('/allocate/{deposit}', [AllocateController::class, 'store'])->whereNumber('deposit');

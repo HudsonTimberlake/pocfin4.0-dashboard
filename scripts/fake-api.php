@@ -485,6 +485,86 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/edit-envelopes$#', $path)) {
     return $answer(['monthly_income' => $state['income'] ?? '22850.00', 'can_change_income' => true, 'envelopes' => $envelopes, 'plans' => $state['plans'] ?? []]);
 }
 
+// Goals (W13): the boards' four goals and two past ones, shaped like the API's goal report.
+$m0 = date('Y-m-01');
+$mAgo = fn (int $n) => date('Y-m-01', strtotime("$m0 -$n months"));
+$mOn = fn (int $n) => date('Y-m-01', strtotime("$m0 +$n months"));
+$cyc = fn (string $start, string $needed, string $in, string $status) => ['start' => $start, 'end' => date('Y-m-t', strtotime($start)), 'needed' => $needed, 'in' => $in, 'status' => $status];
+$goalBase = fn (array $g) => array_replace([
+    'icon' => null, 'purpose_id' => null, 'target_amount' => null, 'amount_per_cycle' => null, 'target_month' => null, 'year_start_month' => null,
+    'opening_amount' => '0.00', 'plan_from' => $m0, 'starts_on' => $mAgo(11), 'upcoming' => false, 'review_month' => null, 'remind_on_payday' => true,
+    'raise_mode' => null, 'raise_value' => null, 'growth_pct' => null, 'spread_pct' => null, 'inflation_pct' => null, 'age' => null, 'retire_age' => null,
+    'status' => 'active', 'finished_at' => null, 'outcome' => null, 'snoozed_until' => null, 'reviewed_at' => null, 'created_by' => 7, 'updated_by' => 7,
+    'counts' => ['on_track' => 0, 'extra' => 0, 'rest' => 0, 'of' => 0], 'total' => '0.00', 'to_go' => null, 'cycles_left' => null, 'pace' => null, 'reached' => false,
+    'behind' => null, 'needs_look' => false, 'year' => null, 'value' => null, 'growth_so_far' => null, 'review_due' => false,
+], $g);
+$paid = ! empty($state['goal_paid']);
+$state['goals_extra'] ??= [];
+$state['goals_gone'] ??= [];
+$allGoals = array_values(array_filter([
+    $goalBase(['id' => 1, 'kind' => 'habit', 'name' => 'Emergency fund', 'account_id' => 11, 'link' => ['type' => 'account', 'name' => 'Emergency fund', 'account_type' => 'savings'],
+        'amount_per_cycle' => '500.00', 'total' => '42300.00', 'counts' => ['on_track' => 10, 'extra' => 1, 'rest' => 1, 'of' => 11], 'state' => $paid ? 'on_track' : 'waiting',
+        'this_cycle' => $cyc($m0, '500.00', $paid ? '500.00' : '0.00', $paid ? 'on' : 'waiting') + ['left' => $paid ? '0.00' : '500.00'],
+        'cycles' => array_map(fn ($i) => $cyc($mAgo(11 - $i), '500.00', $i === 3 ? '0.00' : '500.00', $i === 11 ? ($paid ? 'on' : 'waiting') : ($i === 3 ? 'rest' : ($i === 6 ? 'extra' : 'on'))), range(0, 11))]),
+    $goalBase(['id' => 2, 'kind' => 'yearly', 'name' => 'Tax-free top-up', 'account_id' => 13, 'link' => ['type' => 'account', 'name' => 'Long-term investments', 'account_type' => 'investment'],
+        'target_amount' => '46000.00', 'total' => '27000.00', 'starts_on' => $mAgo(8), 'state' => 'on_track',
+        'year' => ['start' => $mAgo(8), 'end' => date('Y-m-t', strtotime($mOn(3))), 'total' => '27000.00', 'cycles_left' => 4],
+        'this_cycle' => $cyc($m0, '4750.00', '0.00', 'waiting') + ['left' => '4750.00'],
+        'cycles' => array_map(fn ($i) => $cyc($mAgo(8 - $i), '4600.00', in_array($i, [2, 5], true) ? '2000.00' : '3833.33', $i === 8 ? 'waiting' : (in_array($i, [2, 5], true) ? 'rest' : 'on')), range(0, 8))]),
+    $goalBase(['id' => 3, 'kind' => 'value', 'name' => 'Retire at 65', 'account_id' => 13, 'link' => ['type' => 'account', 'name' => 'Long-term investments', 'account_type' => 'investment'],
+        'target_amount' => '80000000.00', 'amount_per_cycle' => '1500.00', 'target_month' => '2061-03', 'opening_amount' => '120000.00', 'plan_from' => $mAgo(10), 'starts_on' => $mAgo(10),
+        'review_month' => 3, 'raise_mode' => 'percent', 'raise_value' => '6.00', 'growth_pct' => '10.00', 'spread_pct' => '2.00', 'inflation_pct' => '5.00', 'age' => 30, 'retire_age' => 65,
+        'value' => '141540.12', 'growth_so_far' => ['since' => $mAgo(10), 'time_weighted_return' => '9.86'], 'state' => 'on_track', 'total' => '15000.00',
+        'this_cycle' => $cyc($m0, '1500.00', '1500.00', 'on') + ['left' => '0.00']]),
+    $goalBase(['id' => 4, 'kind' => 'target', 'name' => 'Car deposit', 'account_id' => 12, 'link' => ['type' => 'account', 'name' => 'Car licence and tax', 'account_type' => 'holding'],
+        'target_amount' => '12000.00', 'target_month' => date('Y-m', strtotime($mOn(7))), 'total' => '3100.00', 'to_go' => '8900.00', 'cycles_left' => 8, 'pace' => '1112.50', 'starts_on' => $mAgo(4),
+        'state' => 'needs_look', 'needs_look' => true, 'behind' => ['cycles_worth' => 2, 'asks' => true, 'was' => '890.00', 'now' => '1112.50', 'move_to' => date('Y-m', strtotime($mOn(11)))],
+        'this_cycle' => $cyc($m0, '1112.50', '0.00', 'waiting') + ['left' => '1112.50'],
+        'cycles' => array_map(fn ($i) => $cyc($mAgo(4 - $i), '890.00', $i < 2 ? '1550.00' : '0.00', $i === 4 ? 'waiting' : ($i < 2 ? 'on' : 'rest')), range(0, 4))]),
+    $goalBase(['id' => 5, 'kind' => 'target', 'name' => 'New fridge', 'account_id' => 11, 'link' => ['type' => 'account', 'name' => 'Emergency fund', 'account_type' => 'savings'],
+        'target_amount' => '9000.00', 'total' => '9000.00', 'status' => 'finished', 'finished_at' => $mAgo(3), 'outcome' => 'reached', 'reached' => true, 'state' => 'finished', 'this_cycle' => null]),
+    $goalBase(['id' => 6, 'kind' => 'habit', 'name' => 'Holiday 2025', 'account_id' => 12, 'link' => ['type' => 'account', 'name' => 'Car licence and tax', 'account_type' => 'holding'],
+        'amount_per_cycle' => '400.00', 'total' => '3600.00', 'status' => 'finished', 'finished_at' => $mAgo(7), 'outcome' => 'ended', 'state' => 'finished', 'this_cycle' => null, 'counts' => ['on_track' => 9, 'extra' => 0, 'rest' => 1, 'of' => 10]]),
+    ...array_map($goalBase, $state['goals_extra']),
+], fn ($g) => ! in_array($g['id'], $state['goals_gone'], true)));
+foreach ($allGoals as &$g) { if (isset($state['goal_edits'][$g['id']])) { $g = array_replace($g, $state['goal_edits'][$g['id']]); } }
+unset($g);
+if (preg_match('#^/api/dashboard/budgets/(\d+)/goals(/(\d+)(/(finish|snooze|reviewed))?)?$#', $path, $m) && $method !== 'GET') {
+    $id = (int) ($m[3] ?? 0);
+    if ($method === 'POST' && ! $id) {
+        if (trim((string) ($body['name'] ?? '')) === '') { return $fail('name', 'The name field is required.'); }
+        if (in_array($body['kind'] ?? '', ['target', 'yearly', 'value'], true) && ! $amountOk($body['target_amount'] ?? '')) { return $fail('target_amount', 'The target amount field is required.'); }
+        if (in_array($body['kind'] ?? '', ['habit', 'value'], true) && ! $amountOk($body['amount_per_cycle'] ?? '')) { return $fail('amount_per_cycle', 'The amount per cycle field is required.'); }
+        $acc = current(array_filter($state['accounts'], fn ($a) => $a['id'] === (int) ($body['account_id'] ?? 0)));
+        $new = ['id' => ++$state['seq'], 'kind' => $body['kind'], 'name' => trim($body['name']), 'account_id' => $acc['id'] ?? null, 'purpose_id' => $body['purpose_id'] ?? null,
+            'link' => ['type' => $acc ? 'account' : 'purpose', 'name' => $acc['name'] ?? ($state['purposes'][$body['purpose_id'] ?? 0] ?? 'Purpose'), 'account_type' => $acc['type'] ?? null],
+            'target_amount' => $body['target_amount'] ?? null, 'amount_per_cycle' => $body['amount_per_cycle'] ?? null, 'target_month' => $body['target_month'] ?? null,
+            'starts_on' => $body['starts_on'] ?? date('Y-m-d'), 'plan_from' => $m0, 'remind_on_payday' => (bool) ($body['remind_on_payday'] ?? true),
+            'state' => 'waiting', 'this_cycle' => ['start' => $m0, 'end' => date('Y-m-t'), 'needed' => $body['amount_per_cycle'] ?? '0.00', 'in' => '0.00', 'left' => $body['amount_per_cycle'] ?? '0.00', 'status' => 'waiting'], 'cycles' => []];
+        if (($body['kind'] ?? '') === 'value') { $new += ['growth_pct' => '10.00', 'spread_pct' => '2.00', 'inflation_pct' => '5.00', 'raise_mode' => 'percent', 'raise_value' => '6.00', 'value' => $s(($acc['value'] ?? 0)), 'opening_amount' => $s($acc['value'] ?? 0), 'review_month' => (int) date('n')]; }
+        $state['goals_extra'][] = $new;
+        $save();
+        return $answer(['id' => $new['id']] + $new, 201);
+    }
+    if (! in_array($id, array_column($allGoals, 'id'), true)) { return $answer(['message' => 'Not found.'], 404); }
+    if ($method === 'DELETE') { $state['goals_gone'][] = $id; $save(); return $answer(null, 204); }
+    $edit = match ($m[5] ?? '') {
+        'finish' => ['status' => 'finished', 'state' => 'finished', 'finished_at' => date('Y-m-d'), 'outcome' => ! empty($body['reached']) ? 'reached' : 'ended', 'this_cycle' => null],
+        'snooze' => ['snoozed_until' => date('Y-m-t'), 'state' => 'waiting', 'needs_look' => false, 'behind' => null],
+        'reviewed' => ['review_due' => false, 'reviewed_at' => date('c')],
+        default => array_intersect_key($body, array_flip(['name', 'target_amount', 'amount_per_cycle', 'target_month', 'remind_on_payday', 'kind'])) + ['needs_look' => false, 'behind' => null, 'state' => 'waiting', 'snoozed_until' => null],
+    };
+    $state['goal_edits'][$id] = array_replace($state['goal_edits'][$id] ?? [], $edit);
+    $save();
+    return $answer(array_replace(current(array_filter($allGoals, fn ($g) => $g['id'] === $id)), $edit));
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/goals$#', $path)) {
+    $asked = (int) ($_GET['goal'] ?? 0);
+    $list = array_map(fn ($g) => array_diff_key($g, ['cycles' => 1]), $allGoals);
+    $sel = current(array_filter($allGoals, fn ($g) => $g['id'] === $asked)) ?: null;
+    return $answer(['goals' => $list, 'selected' => $sel ? $sel + ['cycles' => []] : null, 'accounts' => $accounts, 'purposes' => array_map(fn ($id, $n) => ['id' => $id, 'name' => $n], array_keys($state['purposes'] ?? []), $state['purposes'] ?? []), 'cycle' => $overview['summary']['cycle']]);
+}
+
 // Accounts (W11): every account, the totals, purposes, goals, and the chosen one's money in and out.
 if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts$#', $path)) {
     $sel = (int) ($_GET['account'] ?? 0) ?: (current(array_filter($accounts, fn ($a) => $a['type'] === 'investment'))['id'] ?? null);

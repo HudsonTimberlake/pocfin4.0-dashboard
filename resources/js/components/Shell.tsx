@@ -17,6 +17,7 @@ const MONEY: Item[] = [
     { key: 'budget', label: 'Budget', href: '/budget', icon: 'budget', spa: true },
     { key: 'history', label: 'History', href: '/history', icon: 'history', spa: true },
     { key: 'accounts', label: 'Accounts', href: '/accounts', icon: 'accounts', spa: true },
+    { key: 'goals', label: 'Goals', href: '/goals', icon: 'goals', spa: true },
     { key: 'recaps', label: 'Recaps', href: '/recaps', icon: 'recaps' },
 ];
 const ACCOUNT: Item[] = [

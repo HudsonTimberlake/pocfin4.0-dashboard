@@ -172,7 +172,9 @@ export default function Overview(p: Props) {
     const top = (s.top_categories ?? []).filter((c) => c.envelope_id !== null).slice(0, 5);
 
     const activeGoals = (p.goals ?? []).filter((g) => g.status === 'active');
-    const onTrack = activeGoals.filter((g) => !['waiting', 'needs_look', 'upcoming'].includes(g.state ?? '')).length;
+    // As on Goals: waiting for this month's money isn't off track; only a goal that's behind is.
+    const counted = activeGoals.filter((g) => g.state !== 'upcoming');
+    const onTrack = counted.filter((g) => g.state !== 'needs_look').length;
     const gain = p.accounts.reduce((t, a) => (a.type === 'investment' && a.gain ? t + toCents(a.gain) : t), 0n);
     const weeks = (p.streak?.weeks ?? []).slice(-8);
 
@@ -273,13 +275,13 @@ export default function Overview(p: Props) {
                 </Section>
 
                 <section aria-label="Goals, accounts and streak" className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
-                    <div className="rounded-[20px] bg-card px-5 py-[18px]">
+                    <Link href="/goals" className="rounded-[20px] bg-card px-5 py-[18px] transition-transform active:scale-[0.98]">
                         <div className="text-sm font-bold text-slate">Goals</div>
-                        <div className="mt-1 text-[17px] font-extrabold">{activeGoals.length ? `${onTrack} of ${activeGoals.length} on track` : 'None yet'}</div>
+                        <div className="mt-1 text-[17px] font-extrabold">{counted.length ? `${onTrack} of ${counted.length} on track` : 'None yet'}</div>
                         <div className="mt-3">
-                            <Bar percent={activeGoals.length ? Math.round((onTrack / activeGoals.length) * 100) : 0} />
+                            <Bar percent={counted.length ? Math.round((onTrack / counted.length) * 100) : 0} />
                         </div>
-                    </div>
+                    </Link>
                     <a href="/accounts" className="rounded-[20px] bg-card px-5 py-[18px] transition-transform active:scale-[0.98]">
                         <div className="text-sm font-bold text-slate">Accounts</div>
                         <div className="mt-1 text-[17px] font-extrabold">
