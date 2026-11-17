@@ -67,6 +67,14 @@ Route::middleware(['signed.in', 'idle'])->group(function () {
     // Search words and filters are posted and kept in the session, never put in the address.
     Route::post('/history', [HistoryController::class, 'filter']);
     Route::get('/history/receipt/{expense}', [HistoryController::class, 'receipt'])->whereNumber('expense')->name('history.receipt');
+    // Version 2 History (W10): more rows, changes, deletes with Undo, several at once, receipts, CSV.
+    Route::get('/history/rows', [HistoryController::class, 'rows']);
+    Route::get('/history/export', [HistoryController::class, 'export'])->name('history.export');
+    Route::patch('/history/{tab}/{id}', [HistoryController::class, 'update'])->whereIn('tab', ['spent', 'income', 'moved'])->whereNumber('id');
+    Route::post('/history/{tab}/delete', [HistoryController::class, 'destroy'])->whereIn('tab', ['spent', 'income', 'moved']);
+    Route::post('/history/spent/envelope', [HistoryController::class, 'moveEnvelope']);
+    Route::post('/history/receipt/{expense}', [HistoryController::class, 'storeReceipt'])->whereNumber('expense');
+    Route::delete('/history/receipt/{expense}', [HistoryController::class, 'destroyReceipt'])->whereNumber('expense');
     Route::get('/accounts', [AccountsController::class, 'show'])->name('accounts');
     Route::get('/recaps', [RecapController::class, 'show'])->name('recaps');
 

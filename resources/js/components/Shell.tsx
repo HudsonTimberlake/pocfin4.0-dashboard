@@ -15,7 +15,7 @@ type Item = { key: string; label: string; href: string; icon: IconName; spa?: bo
 const MONEY: Item[] = [
     { key: 'overview', label: 'Overview', href: '/', icon: 'overview', spa: true },
     { key: 'budget', label: 'Budget', href: '/budget', icon: 'budget', spa: true },
-    { key: 'history', label: 'History', href: '/history', icon: 'history' },
+    { key: 'history', label: 'History', href: '/history', icon: 'history', spa: true },
     { key: 'accounts', label: 'Accounts', href: '/accounts', icon: 'accounts' },
     { key: 'recaps', label: 'Recaps', href: '/recaps', icon: 'recaps' },
 ];
@@ -319,6 +319,10 @@ export default function Shell({ active, title, children }: { active: string; tit
     const app = useMemo(() => ({ openAdd, toast: showToast }), [openAdd, showToast]);
 
     useEffect(() => followSystem(), []);
+    // A message the server flashed (for example "Saved, but the receipt didn't attach") shows as a toast.
+    useEffect(() => {
+        if (props.status) showToast({ text: props.status, ms: 7000 });
+    }, [props.status, showToast]);
     useIdleLock(props.idleMinutes, lockForm);
     useEffect(() => {
         if (!menu) return;
@@ -330,7 +334,7 @@ export default function Shell({ active, title, children }: { active: string; tit
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             const t = e.target as HTMLElement;
-            if (e.key.toLowerCase() !== 'n' || e.metaKey || e.ctrlKey || e.altKey || add.open || t.closest('input, textarea, select, [contenteditable="true"]')) return;
+            if (e.key.toLowerCase() !== 'n' || e.metaKey || e.ctrlKey || e.altKey || add.open || t?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
             e.preventDefault();
             openAdd();
         };

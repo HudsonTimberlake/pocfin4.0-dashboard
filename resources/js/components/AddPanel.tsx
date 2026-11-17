@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import EnvelopeIcon from '@/components/EnvelopeIcon';
@@ -7,7 +7,7 @@ import { cleanTyped, hasAmount, minus, toAmount, ymd } from '@/lib/amount';
 import type { AddOpen, AddTab } from '@/lib/app';
 import { formatMoney, isNegative } from '@/lib/format';
 import { ARRIVE } from '@/lib/motion';
-import type { Envelope } from '@/types';
+import type { Envelope, Shared } from '@/types';
 
 type Account = { id: number; name: string; type: string; balance: string };
 type Options = { envelopes: Envelope[]; accounts: Account[]; envelope_use: { envelope_id: number; uses: number }[] };
@@ -44,6 +44,11 @@ export default function AddPanel({ open, start, onClose }: { open: boolean; star
     const [done, setDone] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [added, setAdded] = useState<{ key: number; text: string; amount: string }[]>([]);
+    const [receipt, setReceipt] = useState<File | null>(null);
+    const fileRef = useRef<HTMLInputElement>(null);
+    const { budgets, budgetId } = usePage<Shared>().props;
+    // Receipt photos are Premium (the server checks again); free budgets see a quiet line instead.
+    const premium = budgets.find((b) => b.id === budgetId)?.premium ?? false;
     const amountRef = useRef<HTMLInputElement>(null);
     const opener = useRef<Element | null>(null);
 
@@ -61,6 +66,7 @@ export default function AddPanel({ open, start, onClose }: { open: boolean; star
         setNote('');
         setErrors({});
         setAdded([]);
+        setReceipt(null);
         setDone(false);
         setShowAll(false);
         setFailed(false);
@@ -124,7 +130,7 @@ export default function AddPanel({ open, start, onClose }: { open: boolean; star
             if (place.startsWith('a:')) url = `/money/accounts/${place.slice(2)}/expenses`;
             else {
                 url = '/money/expenses';
-                data = { ...data, envelope_id: Number(place.slice(2)) || null, refund: tab === 'refund' };
+                data = { ...data, envelope_id: Number(place.slice(2)) || null, refund: tab === 'refund', ...(receipt ? { receipt } : {}) };
             }
         } else if (tab === 'income') url = '/money/income';
         else {
@@ -143,6 +149,7 @@ export default function AddPanel({ open, start, onClose }: { open: boolean; star
                     setAdded((a) => [{ key: Date.now(), text: `${where} · ${day === ymd() ? 'Today' : day}`, amount }, ...a].slice(0, 5));
                     setTyped('');
                     setNote('');
+                    setReceipt(null);
                     amountRef.current?.focus();
                     // Fresh balances for the next one.
                     fetch('/add/options', { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }).then((r) => r.json()).then(setOptions).catch(() => {});
@@ -358,6 +365,30 @@ export default function AddPanel({ open, start, onClose }: { open: boolean; star
                                 <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={tab === 'income' ? 'Salary' : 'Optional'} maxLength={255} className={field} />
                                 {err('note')}
                             </label>
+                            {(tab === 'spent' || tab === 'refund') && place.startsWith('e:') ? (
+                                premium ? (
+                                    <div className="flex flex-col gap-1">
+                                        <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" className="hidden" onChange={(e) => setReceipt(e.target.files?.[0] ?? null)} />
+                                        {receipt ? (
+                                            <div className="flex items-center gap-2 rounded-xl bg-canvas px-3 py-2 text-sm font-bold">
+                                                <Icon name="receipt" size={16} stroke={2} />
+                                                <span className="min-w-0 flex-1 truncate">{receipt.name}</span>
+                                                <button type="button" onClick={() => { setReceipt(null); if (fileRef.current) fileRef.current.value = ''; }} className="text-teal hover:underline">
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button type="button" onClick={() => fileRef.current?.click()} className="flex h-10 items-center gap-2 self-start rounded-xl px-1 text-sm font-bold text-teal hover:underline">
+                                                <Icon name="receipt" size={16} stroke={2} />
+                                                Add a receipt photo
+                                            </button>
+                                        )}
+                                        {err('receipt')}
+                                    </div>
+                                ) : (
+                                    <p className="text-[13px] text-slate">Receipt photos come with Premium.</p>
+                                )
+                            ) : null}
                             {err('form')}
 
                             {added.length ? (

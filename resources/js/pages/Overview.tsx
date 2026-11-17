@@ -68,7 +68,7 @@ function Section({ title, link, children }: { title: string; link?: { href: stri
                 </h2>
                 {link ? (
                     // Pages already in React swap in place; the rest are still release 1 (a full load).
-                    link.href === '/budget' ? (
+                    ['/budget', '/history'].includes(link.href) ? (
                         <Link href={link.href} className="text-[14.5px] font-bold text-teal hover:underline">
                             {link.label}
                         </Link>

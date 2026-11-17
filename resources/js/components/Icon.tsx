@@ -38,6 +38,9 @@ const PATHS = {
     grip: 'M9 6v.1M15 6v.1M9 12v.1M15 12v.1M9 18v.1M15 18v.1',
     search: 'M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14M16.5 16.5L21 21',
     archive: 'M3 5h18v4H3zM5 9v11h14V9M10 13h4',
+    receipt: 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3',
+    calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
+    download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
     trash: 'M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6',
 } as const;
 

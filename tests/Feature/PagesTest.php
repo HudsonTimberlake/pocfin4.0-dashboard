@@ -154,11 +154,17 @@ class PagesTest extends TestCase
         $this->signedIn()->post('/history', ['q' => 'shop', 'tab' => 'spent'])->assertRedirect('/history?tab=spent');
         $this->assertSame(['q' => 'shop'], session('history_filters'));
 
-        $this->get('/history?tab=spent')->assertOk()->assertSee('30 found')->assertSee('Refund')->assertSee('Open receipt photo')->assertSee('Older');
-        Http::assertSent(fn (Request $r) => str_contains($r->url(), '/dashboard/budgets/3/history') && ($r->data()['q'] ?? null) === 'shop' && ($r->data()['tab'] ?? null) === 'spent');
+        $this->get('/history?tab=spent')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('History')
+            ->where('tab', 'spent')
+            ->where('filters.q', 'shop')
+            ->where('filters.order', 'newest')
+            ->where('list.page', 1)
+            ->has('envelopes')->has('members'));
+        Http::assertSent(fn (Request $r) => str_contains($r->url(), '/dashboard/budgets/3/history') && ($r->data()['q'] ?? null) === 'shop' && ($r->data()['tab'] ?? null) === 'spent' && (int) ($r->data()['per_page'] ?? 0) === 50);
 
-        $this->get('/history?tab=income')->assertOk()->assertSee('Salary');
-        $this->get('/history?tab=moved')->assertOk()->assertSee('Holiday → Long-term investments');
+        $this->get('/history?tab=income')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page->where('tab', 'income'));
+        $this->get('/history?tab=moved')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page->where('tab', 'moved'));
     }
 
     public function test_accounts_with_returns(): void

@@ -9,6 +9,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -73,6 +74,14 @@ class Api
         $this->allow($path);
 
         return $this->send(fn () => $this->request()->delete($path, $data), 'DELETE '.$path);
+    }
+
+    /** A file (a receipt photo) sent on as multipart. */
+    public function upload(string $path, string $field, UploadedFile $file): Response
+    {
+        $this->allow($path);
+
+        return $this->send(fn () => $this->request()->attach($field, $file->get(), $file->getClientOriginalName())->post($path), 'POST '.$path);
     }
 
     /** The JSON of a GET that must work. */

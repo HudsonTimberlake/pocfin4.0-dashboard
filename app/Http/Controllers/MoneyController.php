@@ -37,10 +37,23 @@ class MoneyController extends Controller
             'date' => ['required', 'date_format:Y-m-d'],
             'note' => ['nullable', 'string', 'max:255'],
             'refund' => ['sometimes', 'boolean'],
-        ]);
-        $this->api->ok($this->api->post($this->path('expenses'), $data));
+            'receipt' => ['nullable', 'file', 'max:5120'],
+        ], ['receipt.max' => 'Choose a photo under 5 MB.']);
+        $file = $request->file('receipt');
+        unset($data['receipt']);
+        $id = $this->api->ok($this->api->post($this->path('expenses'), $data))->json('id');
+        $saved = $data['refund'] ?? false ? 'refund' : 'expense';
 
-        return back()->with('saved', $data['refund'] ?? false ? 'refund' : 'expense');
+        // The photo goes on once the expense exists. If it's refused, the expense stays saved and
+        // the toast says why (receipts need Premium, or the photo isn't one we take).
+        if ($file && $id) {
+            $r = $this->api->upload($this->path("expenses/$id/receipt"), 'receipt', $file);
+            if (! $r->successful()) {
+                return back()->with('saved', $saved)->with('status', 'Saved, but the receipt didn’t attach: '.($r->json('errors.receipt.0') ?? $r->json('message') ?? 'try again from History.'));
+            }
+        }
+
+        return back()->with('saved', $saved);
     }
 
     public function updateExpense(Request $request, int $expense): RedirectResponse

@@ -52,6 +52,21 @@ function fresh(callable $day): array
             ['id' => 4, 'envelope_id' => 1, 'amount' => 34900, 'refund' => true, 'date' => $day(2), 'note' => 'Returned a kettle', 'created_by' => 7],
             ['id' => 5, 'envelope_id' => 4, 'amount' => 50000, 'refund' => false, 'date' => $day(3), 'note' => 'Prepaid electricity', 'created_by' => 7],
             ['id' => 6, 'envelope_id' => 6, 'amount' => 100000, 'refund' => false, 'date' => $day(6), 'note' => 'Fibre', 'created_by' => 8],
+            ['id' => 7, 'envelope_id' => 1, 'amount' => 61240, 'refund' => false, 'date' => $day(8), 'note' => 'Woolworths', 'created_by' => 8, 'receipt' => 1],
+            ['id' => 8, 'envelope_id' => 2, 'amount' => 28540, 'refund' => false, 'date' => $day(8), 'note' => 'Uber Eats', 'created_by' => 8],
+            ['id' => 9, 'envelope_id' => 3, 'amount' => 68000, 'refund' => false, 'date' => $day(9), 'note' => 'Shell', 'created_by' => 7],
+            ['id' => 10, 'envelope_id' => 1, 'amount' => 124095, 'refund' => false, 'date' => $day(11), 'note' => 'Pick n Pay', 'created_by' => 7, 'receipt' => 1],
+            ['id' => 11, 'envelope_id' => 5, 'amount' => 850000, 'refund' => false, 'date' => $day(12), 'note' => 'Rent', 'created_by' => 7],
+        ],
+        'deposits' => [
+            ['id' => 40, 'amount' => 2285000, 'date' => date('Y-m-01'), 'note' => 'Salary', 'created_by' => 7],
+            ['id' => 39, 'amount' => 31240, 'date' => date('Y-m-d', strtotime('first day of last month')), 'note' => 'Interest', 'created_by' => 7, 'allocated' => 31240],
+            ['id' => 38, 'amount' => 50000, 'date' => date('Y-m-d', strtotime('-3 days')), 'note' => 'Gift from Gogo', 'created_by' => 8, 'allocated' => 0],
+        ],
+        'transfers' => [
+            ['id' => 31, 'from_envelope_id' => 8, 'to_envelope_id' => 2, 'amount' => 20000, 'date' => $day(2), 'note' => 'Cover Eating out', 'created_by' => 7],
+            ['id' => 32, 'from_envelope_id' => 10, 'to_account_id' => 13, 'to_holding_id' => 21, 'amount' => 150000, 'date' => date('Y-m-01'), 'note' => 'Monthly contribution', 'created_by' => 7],
+            ['id' => 33, 'from_account_id' => 11, 'to_account_id' => 12, 'amount' => 50000, 'date' => date('Y-m-02'), 'note' => 'Car licence', 'created_by' => 8],
         ],
     ];
 }
@@ -76,7 +91,7 @@ $checkExpense = function (array $b) use (&$state, $c, $fail) {
     if ($c($b['amount'] ?? '0') <= 0) { return $fail('amount', 'The amount must be more than R0.00.'); }
     return null;
 };
-$shapeExpense = fn (array $x) => [...$x, 'amount' => $s($x['amount']), 'has_receipt' => false, 'receipt_version' => null];
+$shapeExpense = fn (array $x) => [...$x, 'amount' => $s($x['amount']), 'has_receipt' => ! empty($x['receipt']), 'receipt_version' => empty($x['receipt']) ? null : (string) $x['receipt'], 'automatic' => false];
 
 if ($path === '/api/fake/reset') { @unlink($file); return $answer(['reset' => true]); }
 
@@ -241,6 +256,63 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/envelope-plans/(\d+)$#', $path, $
     return $answer(null, 204);
 }
 
+// History (W10): rows changed, deleted (several at once, all or nothing), receipts, and the receipt photo.
+$depAllocated = fn (array $d) => $d['id'] === 40 ? 2285000 - $state['unallocated'] : ($d['allocated'] ?? 0);
+$shapeDeposit = fn (array $d) => ['id' => $d['id'], 'amount' => $s($d['amount']), 'allocated' => $s($depAllocated($d)), 'unallocated' => $s($d['amount'] - $depAllocated($d)), 'date' => $d['date'], 'note' => $d['note'], 'created_by' => $d['created_by']];
+$shapeTransfer = fn (array $t) => ['id' => $t['id'], 'from_envelope_id' => $t['from_envelope_id'] ?? null, 'from_account_id' => $t['from_account_id'] ?? null, 'from_private_account' => false, 'from_holding_id' => null, 'from_purpose_id' => null, 'to_envelope_id' => $t['to_envelope_id'] ?? null, 'to_account_id' => $t['to_account_id'] ?? null, 'to_private_account' => false, 'to_holding_id' => $t['to_holding_id'] ?? null, 'to_purpose_id' => isset($t['to_holding_id']) ? 5 : null, 'amount' => $s($t['amount']), 'date' => $t['date'], 'note' => $t['note'], 'created_by' => $t['created_by'], 'automatic' => false];
+$state['deposits'] ??= []; $state['transfers'] ??= [];
+if (preg_match('#^/api/budgets/(\d+)/expenses/(\d+)/receipt$#', $path, $m) && $method === 'GET') {
+    header('Content-Type: image/svg+xml');
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="420"><rect width="300" height="420" fill="#fff"/><text x="30" y="60" font-family="sans-serif" font-size="22">Sample slip #'.(int) $m[2].'</text><rect x="30" y="90" width="240" height="8" fill="#ddd"/><rect x="30" y="120" width="200" height="8" fill="#ddd"/><rect x="30" y="150" width="220" height="8" fill="#ddd"/></svg>';
+    return true;
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/expenses/(\d+)/receipt$#', $path, $m)) {
+    foreach ($state['expenses'] as &$x) { if ($x['id'] === (int) $m[2]) { $x['receipt'] = $method === 'DELETE' ? 0 : time(); } }
+    unset($x);
+    $save();
+    return $method === 'DELETE' ? $answer(null, 204) : $answer(['has_receipt' => true], 201);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/deposits/(\d+)$#', $path, $m) && $method === 'PATCH') {
+    foreach ($state['deposits'] as &$d) {
+        if ($d['id'] !== (int) $m[2]) { continue; }
+        if (isset($body['amount'])) { if ($c($body['amount']) < $depAllocated($d)) { return $fail('amount', 'Income can’t be less than what you have already allocated from it ('.$s($depAllocated($d)).').'); } $d['amount'] = $c($body['amount']); }
+        foreach (['date', 'note'] as $k) { if (array_key_exists($k, $body)) { $d[$k] = $body[$k]; } }
+        $out = $shapeDeposit($d);
+    }
+    unset($d);
+    $save();
+    return $answer($out ?? ['message' => 'Not found.'], isset($out) ? 200 : 404);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/transfers/(\d+)$#', $path, $m) && $method === 'PATCH') {
+    foreach ($state['transfers'] as &$t) {
+        if ($t['id'] !== (int) $m[2]) { continue; }
+        if (isset($t['to_holding_id']) && array_diff(array_keys($body), ['note'])) { return $fail('amount', 'Money in a holding can only have its note changed.'); }
+        if (isset($body['amount'])) { $t['amount'] = $c($body['amount']); }
+        foreach (['date', 'note', 'from_envelope_id', 'from_account_id', 'to_envelope_id', 'to_account_id'] as $k) { if (array_key_exists($k, $body)) { $t[$k] = $body[$k]; } }
+        foreach (['from', 'to'] as $sd) { if (isset($body["{$sd}_envelope_id"])) { unset($t["{$sd}_account_id"]); } if (isset($body["{$sd}_account_id"])) { unset($t["{$sd}_envelope_id"]); } }
+        $out = $shapeTransfer($t);
+    }
+    unset($t);
+    $save();
+    return $answer($out ?? ['message' => 'Not found.'], isset($out) ? 200 : 404);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/history/bulk$#', $path) && $method === 'POST') {
+    $key = ['spent' => 'expenses', 'income' => 'deposits', 'moved' => 'transfers'][$body['tab']];
+    foreach (array_values($body['ids']) as $i => $id) {
+        $row = current(array_filter($state[$key], fn ($r) => $r['id'] === (int) $id));
+        if (! $row) { return $answer(['message' => 'Not found.'], 404); }
+        if ($key === 'deposits' && $body['action'] === 'delete' && $depAllocated($row) > 0) { return $fail("ids.$i", 'This income has already been allocated to envelopes, so it can’t be deleted. Edit its amount instead.'); }
+    }
+    foreach ($body['ids'] as $id) {
+        $i = array_search((int) $id, array_column($state[$key], 'id'), true);
+        if ($body['action'] === 'envelope') { $apply($state[$key][$i], -1); $state[$key][$i]['envelope_id'] = (int) $body['envelope_id']; $apply($state[$key][$i], 1); continue; }
+        if ($key === 'expenses') { $apply($state[$key][$i], -1); }
+        array_splice($state[$key], $i, 1);
+    }
+    $save();
+    return $answer(['done' => count($body['ids'])]);
+}
+
 usort($state['envelopes'], fn ($a, $b) => ($a['sort'] ?? $a['id']) <=> ($b['sort'] ?? $b['id']));
 $envelopes = array_map(fn ($e) => ['id' => $e['id'], 'name' => $e['name'], 'icon' => $e['icon'] ?? null, 'budgeted_amount' => $s($e['target']), 'kind' => $e['kind'], 'balance' => $s($e['balance']), 'sort_order' => $e['sort'] ?? $e['id'], 'archived' => (bool) ($e['archived'] ?? false), 'built_up_snoozed_through' => null], $state['envelopes']);
 $left = array_sum(array_column($state['envelopes'], 'balance'));
@@ -287,6 +359,32 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/allocate$#', $path)) {
 
 if (preg_match('#^/api/dashboard/budgets/(\d+)/edit-envelopes$#', $path)) {
     return $answer(['monthly_income' => $state['income'] ?? '22850.00', 'can_change_income' => true, 'envelopes' => $envelopes, 'plans' => $state['plans'] ?? []]);
+}
+
+// History (W10): one page of a tab, with the filters, newest or oldest first; and every row for the CSV.
+$historyList = function (string $tab, array $g) use (&$state, $shapeExpense, $shapeDeposit, $shapeTransfer, $byId, $s) {
+    $key = ['spent' => 'expenses', 'income' => 'deposits', 'moved' => 'transfers'][$tab];
+    $rows = $state[$key];
+    usort($rows, fn ($a, $b) => [$b['date'], $b['id']] <=> [$a['date'], $a['id']]);
+    $q = strtolower(trim((string) ($g['q'] ?? '')));
+    $rows = array_values(array_filter($rows, function ($r) use ($q, $g, $byId, $s) {
+        if ($q !== '' && ! str_contains(strtolower(($r['note'] ?? '').' '.($byId[$r['envelope_id'] ?? 0]['name'] ?? '').' '.$s($r['amount'])), $q)) { return false; }
+        if (! empty($g['from']) && $r['date'] < $g['from']) { return false; }
+        if (! empty($g['to']) && $r['date'] > $g['to']) { return false; }
+        if (! empty($g['envelope_id']) && ($r['envelope_id'] ?? null) !== (int) $g['envelope_id']) { return false; }
+        return true;
+    }));
+    if (($g['order'] ?? '') === 'oldest') { $rows = array_reverse($rows); }
+    $shape = ['spent' => $shapeExpense, 'income' => $shapeDeposit, 'moved' => $shapeTransfer][$tab];
+    return array_map($shape, $rows);
+};
+if (preg_match('#^/api/dashboard/budgets/(\d+)/history(/export)?$#', $path, $m)) {
+    $tab = $_GET['tab'] ?? 'spent';
+    $all = $historyList($tab, $_GET);
+    $names = ['envelopes' => $envelopes, 'accounts' => $accounts, 'members' => $overview['members']];
+    if (! empty($m[2])) { return $answer(['tab' => $tab, 'rows' => $all, 'truncated' => false, ...$names]); }
+    $per = (int) ($_GET['per_page'] ?? 50); $page = max(1, (int) ($_GET['page'] ?? 1));
+    return $answer(['tab' => $tab, 'list' => ['data' => array_slice($all, ($page - 1) * $per, $per), 'current_page' => $page, 'last_page' => max(1, (int) ceil(count($all) / $per)), 'per_page' => $per, 'total' => count($all), 'unallocated' => $s($state['unallocated'])], ...$names]);
 }
 
 // The Budget page: live envelopes with this month's figures, archived ones, and one envelope's activity.
