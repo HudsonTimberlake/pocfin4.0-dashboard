@@ -1,4 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import HelpButton from '@/components/HelpButton';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { AutoPanel, MODE, NewAutomatic, ReadyCard, nextText, repeatText, route, statusOf, type Choice, type Item } from '@/components/AutomaticParts';
@@ -55,7 +56,10 @@ export default function Automatic(p: Props) {
             <div className="flex flex-col gap-5">
                 <div className="flex flex-wrap items-end gap-3">
                     <div className="min-w-0 flex-1">
-                        <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Automatic</h1>
+                        <div className="flex items-center gap-2.5">
+                            <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Automatic</h1>
+                            <HelpButton topic="automatic" />
+                        </div>
                         <p className="mt-0.5 text-[15px] text-slate">Payments and moves that happen on a date, so you don’t add them by hand</p>
                     </div>
                     <button type="button" onClick={() => setPanel('new')} className="flex h-11 items-center gap-2 rounded-[14px] bg-mint px-4 text-[15px] font-extrabold text-on-mint transition-transform active:scale-[0.97]">

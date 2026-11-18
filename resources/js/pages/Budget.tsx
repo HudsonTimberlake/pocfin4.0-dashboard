@@ -1,4 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import HelpButton from '@/components/HelpButton';
 import { useEffect, useRef, useState, type DragEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import Bar from '@/components/Bar';
@@ -14,8 +15,6 @@ import { ARRIVE } from '@/lib/motion';
 import { fromCents } from '@/shared/money';
 import type { BudgetEnvelope, Envelope } from '@/types';
 
-type Kind = 'everyday' | 'saving_up';
-
 type Props = {
     summary: { cycle: { start: string; end: string } | null; left_to_spend: string; unallocated: string };
     envelopes: BudgetEnvelope[];
@@ -26,10 +25,13 @@ type Props = {
     shared: boolean;
 };
 
-const GROUPS: { kind: Kind; label: string; note: string }[] = [
-    { kind: 'everyday', label: 'Everyday', note: 'spent through the month' },
-    { kind: 'saving_up', label: 'Saving up', note: 'kept for later' },
-];
+const STICKY = 'pocfin-budget-sticky-header';
+
+/** The app's status line: Overspent below zero, Saving up when it holds more than its monthly amount. */
+function statusOf(balance: string, monthly: string): 'Overspent' | 'Saving up' | null {
+    if (isNegative(balance)) return 'Overspent';
+    return toCents(monthly) > 0n && toCents(balance) > toCents(monthly) ? 'Saving up' : null;
+}
 
 const field = 'h-10 rounded-xl border border-line bg-card px-3 text-[15px] font-bold text-ink outline-none focus:border-mint';
 
@@ -37,9 +39,9 @@ const sum = (xs: string[]) => fromCents(xs.reduce((t, x) => t + toCents(x), 0n))
 const firstError = (er: Record<string, string>) => Object.values(er)[0] ?? 'That didn’t work.';
 
 /**
- * W6 Budget, editable: "Where does my money sit, and what's off?" One table (Everyday, then Saving
- * up) with Monthly, Allocated, Spent and Left. Click a monthly amount to change it, drag ⠿ (or
- * press ↑ ↓ on it) to reorder within a group, click a row to open the envelope beside the table
+ * W6 Budget, editable: "Where does my money sit, and what's off?" One table, in the app's order,
+ * with Monthly, Allocated, Spent and Left; a row says Saving up or Overspent on its own, as in the
+ * app. Click a monthly amount to change it, drag ⠿ (or press ↑ ↓ on it) to reorder, click a row to open the envelope beside the table
  * (W7), which then drops Allocated and Spent. Saves show at once and roll back if the server says no.
  */
 export default function Budget(p: Props) {
@@ -50,7 +52,25 @@ export default function Budget(p: Props) {
     const [editing, setEditing] = useState<number | null>(null);
     const [draft, setDraft] = useState('');
     const [openId, setOpenId] = useState<number | null>(p.open_id);
-    const [adding, setAdding] = useState<Kind | null>(null);
+    const [adding, setAdding] = useState(false);
+    const [sticky, setSticky] = useState(false);
+    useEffect(() => {
+        try {
+            setSticky(localStorage.getItem(STICKY) === '1');
+        } catch {
+            /* off */
+        }
+    }, []);
+    function toggleSticky() {
+        setSticky((v) => {
+            try {
+                localStorage.setItem(STICKY, v ? '0' : '1');
+            } catch {
+                /* simply not remembered */
+            }
+            return !v;
+        });
+    }
     const [drag, setDrag] = useState<{ id: number | null; over: number | null }>({ id: null, over: null });
     const [showArchived, setShowArchived] = useState(false);
     const [tick, setTick] = useState(false);
@@ -124,7 +144,7 @@ export default function Budget(p: Props) {
         });
     }
 
-    // Reordering: within a group only; the API takes every id, archived ones too.
+    // Reordering: the API takes every id, archived ones too.
     function sendOrder(next: number[]) {
         const before = order;
         setOrder(next);
@@ -141,14 +161,14 @@ export default function Budget(p: Props) {
     function moveBefore(from: number, to: number) {
         const a = byId.get(from);
         const b = byId.get(to);
-        if (!a || !b || from === to || a.kind !== b.kind) return;
+        if (!a || !b || from === to) return;
         const next = order.filter((x) => x !== from);
         const at = next.indexOf(to) + (order.indexOf(from) < order.indexOf(to) ? 1 : 0);
         next.splice(at, 0, from);
         sendOrder(next);
     }
     function nudge(e: BudgetEnvelope, step: -1 | 1) {
-        const group = rows.filter((r) => r.kind === e.kind).map((r) => r.id);
+        const group = rows.map((r) => r.id);
         const neighbour = group[group.indexOf(e.id) + step];
         if (neighbour !== undefined) moveBefore(e.id, neighbour);
     }
@@ -185,7 +205,10 @@ export default function Budget(p: Props) {
             <div className="flex flex-col gap-5">
                 <div className="flex flex-wrap items-end gap-3">
                     <div className="min-w-0 flex-1">
-                        <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Budget</h1>
+                        <div className="flex items-center gap-2.5">
+                            <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Budget</h1>
+                            <HelpButton topic="budget-envelopes" />
+                        </div>
                         <p className="mt-0.5 text-[15px] text-slate">
                             {p.summary.cycle ? `${monthName(p.summary.cycle.start)} · ` : ''}
                             {rows.length} {rows.length === 1 ? 'envelope' : 'envelopes'} · {formatMoney(p.summary.left_to_spend)} left to spend
@@ -195,7 +218,7 @@ export default function Budget(p: Props) {
                         <Icon name="pen" size={16} stroke={2.2} />
                         Edit envelopes
                     </Link>
-                    <button type="button" onClick={() => setAdding('everyday')} className="flex h-11 items-center gap-2 rounded-[14px] bg-card px-4 text-[15px] font-extrabold transition-transform hover:bg-segment active:scale-[0.97]">
+                    <button type="button" onClick={() => setAdding(true)} className="flex h-11 items-center gap-2 rounded-[14px] bg-card px-4 text-[15px] font-extrabold transition-transform hover:bg-segment active:scale-[0.97]">
                         <Icon name="plus" size={16} stroke={2.4} />
                         New envelope
                     </button>
@@ -220,8 +243,8 @@ export default function Budget(p: Props) {
 
                 <div className="flex items-start gap-5">
                     <div className="min-w-0 flex-1">
-                        <div role="table" aria-label="Envelopes" className="@container overflow-hidden rounded-[24px] bg-card">
-                            <div role="row" className={`grid ${cols} items-center gap-3 border-b border-line px-4 py-3 text-[12.5px] font-bold text-slate`}>
+                        <div role="table" aria-label="Envelopes" className="@container rounded-[24px] bg-card">
+                            <div role="row" className={`grid ${cols} items-center gap-3 rounded-t-[24px] border-b border-line bg-card px-4 py-3 text-[12.5px] font-bold text-slate ${sticky ? 'sticky top-[60px] z-20 shadow-[0_6px_12px_-10px_rgba(0,0,0,0.25)] min-[860px]:top-0' : ''}`}>
                                 <span role="columnheader" className="hidden @lg:block">
                                     <span className="sr-only">Order</span>
                                 </span>
@@ -240,19 +263,17 @@ export default function Budget(p: Props) {
                                 </span>
                             </div>
 
-                            {GROUPS.map((g, gi) => {
-                                const list = rows.filter((e) => e.kind === g.kind);
+                            {(() => {
+                                const list = rows;
                                 return (
-                                    <div key={g.kind} role="rowgroup" aria-label={g.label} className={gi ? 'border-t border-line' : ''}>
-                                        <div className="px-4 pt-3.5 pb-1.5 text-[13px] font-bold text-slate">
-                                            <span className="font-extrabold text-ink">{g.label}</span> · {g.note}
-                                        </div>
+                                    <div role="rowgroup" aria-label="Envelopes" className="pt-1.5">
                                         <AnimatePresence initial={false}>
                                             {list.map((e) => {
                                                 const m = monthlyOf(e);
                                                 const over = isNegative(e.balance);
                                                 const sel = e.id === openId;
-                                                const isOver = drag.over === e.id && drag.id !== null && drag.id !== e.id && byId.get(drag.id)?.kind === e.kind;
+                                                const status = statusOf(e.balance, m);
+                                                const isOver = drag.over === e.id && drag.id !== null && drag.id !== e.id ;
                                                 return (
                                                     <motion.div
                                                         key={e.id}
@@ -302,8 +323,11 @@ export default function Budget(p: Props) {
                                                                 <button type="button" onClick={(ev) => { ev.stopPropagation(); openEnvelope(e.id); }} aria-expanded={sel} className="block max-w-full truncate text-left text-[15px] font-bold">
                                                                     {e.name}
                                                                 </button>
-                                                                <span className="mt-1.5 block max-w-[220px]">
-                                                                    <Bar percent={percent(over ? '0' : e.balance, m)} over={over} height={4} />
+                                                                <span className="mt-1.5 flex max-w-[300px] items-center gap-2">
+                                                                    <span className="block max-w-[220px] flex-1">
+                                                                        <Bar percent={percent(over ? '0' : e.balance, m)} over={over} height={4} />
+                                                                    </span>
+                                                                    {status ? <span className={`flex-none text-[12px] font-bold ${status === 'Overspent' ? 'text-red' : 'text-teal'}`}>{status}</span> : null}
                                                                 </span>
                                                             </span>
                                                         </span>
@@ -347,19 +371,19 @@ export default function Budget(p: Props) {
                                                 );
                                             })}
                                         </AnimatePresence>
-                                        {adding === g.kind ? (
-                                            <NewEnvelopeRow kind={g.kind} onClose={() => setAdding(null)} onSaved={saved} />
+                                        {adding ? (
+                                            <NewEnvelopeRow onClose={() => setAdding(false)} onSaved={saved} />
                                         ) : (
-                                            <button type="button" onClick={() => setAdding(g.kind)} className="mx-4 mb-2.5 flex h-10 items-center gap-2 rounded-xl px-1.5 text-[14.5px] font-bold text-teal hover:underline">
+                                            <button type="button" onClick={() => setAdding(true)} className="mx-4 mb-2.5 flex h-10 items-center gap-2 rounded-xl px-1.5 text-[14.5px] font-bold text-teal hover:underline">
                                                 <Icon name="plus" size={16} stroke={2.4} />
-                                                Add {g.kind === 'saving_up' ? 'a saving up envelope' : 'an envelope'}
+                                                Add an envelope
                                             </button>
                                         )}
                                     </div>
                                 );
-                            })}
+                            })()}
 
-                            <div role="row" className={`grid ${cols} items-center gap-3 border-t border-line bg-canvas/60 px-4 py-3.5 text-[15px] font-extrabold`}>
+                            <div role="row" className={`grid ${cols} items-center gap-3 rounded-b-[24px] border-t border-line bg-canvas/60 px-4 py-3.5 text-[15px] font-extrabold`}>
                                 <span className="hidden @lg:block" />
                                 <span role="cell">All envelopes</span>
                                 <span role="cell" className="num pr-2 text-right">
@@ -389,6 +413,12 @@ export default function Budget(p: Props) {
                                 ) : null}
                             </AnimatePresence>
                             <span className="flex-1" />
+                            <label className="flex cursor-pointer items-center gap-2 font-bold text-ink">
+                                <button type="button" role="switch" aria-checked={sticky} onClick={toggleSticky} className={`relative h-[22px] w-[38px] flex-none rounded-full transition-colors ${sticky ? 'bg-mint' : 'bg-segment'}`}>
+                                    <span className={`absolute top-[3px] left-[3px] size-4 rounded-full bg-card shadow transition-transform ${sticky ? 'translate-x-4' : ''}`} />
+                                </button>
+                                <span>Keep column names in view</span>
+                            </label>
                             {p.archived.length ? (
                                 <button type="button" onClick={() => setShowArchived((v) => !v)} aria-expanded={showArchived} className="font-bold text-teal hover:underline">
                                     Archived ({p.archived.length})
@@ -425,7 +455,7 @@ export default function Budget(p: Props) {
                                     transition={{ duration: 0.28, ease: ARRIVE }}
                                     className="fixed inset-y-0 right-0 z-50 w-[min(420px,100vw)] overflow-y-auto bg-canvas p-3 xl:sticky xl:top-5 xl:z-auto xl:max-h-[calc(100vh-40px)] xl:w-[380px] xl:flex-none xl:rounded-[24px] xl:p-0"
                                 >
-                                    <EnvelopePanel key={open.id} e={open} activity={p.activity} loading={p.open_id !== open.id} shared={p.shared} canAllocate={ready} onClose={closePanel} onArchive={() => archive(open)} />
+                                    <EnvelopePanel key={open.id} e={open} envelopes={[...p.envelopes, ...p.archived]} activity={p.activity} loading={p.open_id !== open.id} shared={p.shared} canAllocate={ready} onClose={closePanel} onArchive={() => archive(open)} />
                                 </motion.aside>
                             </>
                         ) : null}
@@ -436,8 +466,8 @@ export default function Budget(p: Props) {
     );
 }
 
-/** The add row at the foot of a group: name and monthly amount; stays open to add another. */
-function NewEnvelopeRow({ kind, onClose, onSaved }: { kind: Kind; onClose: () => void; onSaved: () => void }) {
+/** The add row at the foot of the table: name and monthly amount; stays open to add another. Cancel drops what's typed. */
+function NewEnvelopeRow({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
     const [name, setName] = useState('');
     const [amount, setAmount] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -448,7 +478,7 @@ function NewEnvelopeRow({ kind, onClose, onSaved }: { kind: Kind; onClose: () =>
         ev.preventDefault();
         if (!name.trim() || busy) return;
         setBusy(true);
-        router.post('/envelopes', { name: name.trim(), budgeted_amount: toAmount(amount), kind }, {
+        router.post('/envelopes', { name: name.trim(), budgeted_amount: toAmount(amount) }, {
             preserveScroll: true,
             preserveState: true,
             onSuccess: () => {
@@ -470,7 +500,7 @@ function NewEnvelopeRow({ kind, onClose, onSaved }: { kind: Kind; onClose: () =>
             transition={{ duration: 0.2, ease: ARRIVE }}
             onSubmit={save}
             onKeyDown={(e) => e.key === 'Escape' && onClose()}
-            aria-label={kind === 'saving_up' ? 'New saving up envelope' : 'New envelope'}
+            aria-label="New envelope"
             className="mx-3 mb-3 flex flex-col gap-2 rounded-[16px] bg-canvas p-3"
         >
             <div className="flex flex-wrap items-center gap-2">
@@ -482,12 +512,12 @@ function NewEnvelopeRow({ kind, onClose, onSaved }: { kind: Kind; onClose: () =>
                 <button type="submit" disabled={!name.trim() || busy} className="h-10 rounded-xl bg-mint px-4 text-[14.5px] font-extrabold text-on-mint transition-transform active:scale-[0.97] disabled:opacity-60">
                     {busy ? 'Adding…' : 'Add'}
                 </button>
-                <button type="button" onClick={onClose} className="h-10 rounded-xl px-3 text-[14.5px] font-bold text-teal">
-                    Done
+                <button type="button" onClick={onClose} className="h-10 rounded-xl bg-card px-3.5 text-[14.5px] font-bold text-ink hover:bg-segment">
+                    Cancel
                 </button>
             </div>
             {errors.name || errors.budgeted_amount || errors.form ? <p className="text-[13.5px] font-bold text-red-ink">{errors.name || errors.budgeted_amount || errors.form}</p> : null}
-            <p className="text-[12.5px] text-slate">Enter adds it · Esc closes · {kind === 'saving_up' ? 'Saving up: money builds up for something later.' : 'Everyday: spent through the month.'}</p>
+            <p className="text-[12.5px] text-slate">Enter adds it and keeps the row open for another · Cancel or Esc closes</p>
         </motion.form>
     );
 }

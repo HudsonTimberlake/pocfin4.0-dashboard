@@ -91,4 +91,27 @@ class UserController extends Controller
 
         return back()->with('status', 'A new verification code is on its way to them.');
     }
+
+    /**
+     * Devices and the breach lock: sign out one device or all, lock or unlock. One form, the button
+     * pressed says which; the API checks the password, refuses an admin's own account and logs it.
+     */
+    public function access(Request $request, int $user): RedirectResponse
+    {
+        $data = $request->validate([
+            'do' => ['required', 'string', 'regex:/^(device:\d+|all|lock|unlock)$/'],
+            'note' => ['nullable', 'string', 'max:120'],
+            'password' => ['required', 'string'],
+        ]);
+        [$path, $done] = match (true) {
+            str_starts_with($data['do'], 'device:') => ["/admin/users/$user/devices/".substr($data['do'], 7).'/sign-out', 'That device is signed out.'],
+            $data['do'] === 'all' => ["/admin/users/$user/devices/sign-out", 'Signed out everywhere. They can sign in again.'],
+            $data['do'] === 'lock' => ["/admin/users/$user/lock", 'Account locked and signed out everywhere. No sign-in works until you unlock it.'],
+            default => ["/admin/users/$user/unlock", 'Account unlocked. They can sign in again.'],
+        };
+
+        $this->api->ok($this->api->post($path, array_filter(['note' => $data['note'] ?? null, 'password' => $data['password']], fn ($v) => $v !== null)));
+
+        return redirect()->route('admin.user', $user)->with('status', $done);
+    }
 }

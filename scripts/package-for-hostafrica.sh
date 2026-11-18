@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Builds ONE ready-to-upload zip, deploy-out/pocfin-dashboard.zip: the whole Laravel app with its
-# production PHP packages and built CSS/JS, but no .env, tests or node_modules.
+# production PHP packages and built CSS/JS, but no .env, tests or node_modules. The files sit at the
+# top of the zip (no pocfin-dashboard folder inside), so you upload it INTO the existing
+# pocfin-dashboard folder on the server and extract it there, over the old files.
 # On HostAfrica it goes in its own folder next to the API (e.g. /home/<cpuser>/pocfin-dashboard),
 # and the dashboard.pocfin.com subdomain's document root points at its public/ folder.
 # Run it on your Mac from the project folder:  bash scripts/package-for-hostafrica.sh
@@ -30,8 +32,10 @@ echo "3/4 Installing the PHP packages (production only)"
 (cd "$OUT" && composer install --no-dev --optimize-autoloader --no-interaction --no-progress >/dev/null)
 
 echo "4/4 Zipping"
-(cd deploy-out && zip -qrX pocfin-dashboard.zip pocfin-dashboard -x '*.DS_Store')
+# Zip the folder's contents, not the folder, so extracting lands the files where the zip is.
+(cd "$OUT" && zip -qrX ../pocfin-dashboard.zip . -x '*.DS_Store')
 
 echo
 ls -lh deploy-out/pocfin-dashboard.zip | awk '{print $5, $9}'
-echo "Done. Steps are in README.md."
+echo "Done. Upload it into /home/<cpuser>/pocfin-dashboard/ on the server, extract it there"
+echo "(overwrite the old files, keep .env), then delete the zip. Steps are in README.md."

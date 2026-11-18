@@ -32,7 +32,8 @@
                             <td><a href="{{ route('admin.user', $u['id']) }}" class="inline-flex items-center gap-3"><span class="grid size-[34px] place-items-center rounded-full bg-canvas text-[13px] font-extrabold text-slate" aria-hidden="true">{{ initials($u['name']) }}</span><span><span class="block font-bold">{{ $u['name'] }}</span><span class="block text-[13px] font-medium text-slate">{{ $u['email'] }}</span></span></a></td>
                             <td class="text-slate">{{ day($u['joined_at'], false) }}</td>
                             <td>
-                                @if (! $u['verified'])<span class="chip bg-amber-tint text-amber-ink">Not verified</span>
+                                @if ($u['locked'] ?? false)<span class="chip bg-red-tint text-red-ink">Locked</span>
+                                @elseif (! $u['verified'])<span class="chip bg-amber-tint text-amber-ink">Not verified</span>
                                 @else <span class="chip {{ $plans[$u['plan']][1] }}">{{ $plans[$u['plan']][0] }}</span>@endif
                             </td>
                             <td class="text-slate">{{ $u['app_platform'] ? ($u['app_platform'] === 'ios' ? 'iOS' : 'Android').' '.$u['app_version'] : '—' }}</td>

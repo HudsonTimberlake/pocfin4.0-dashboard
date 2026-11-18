@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import AddPanel from '@/components/AddPanel';
 import SearchPalette, { GO_KEYS } from '@/components/SearchPalette';
 import Icon, { type IconName } from '@/components/Icon';
+import Logo from '@/components/Logo';
 import { AppContext, type AddOpen, type Toast } from '@/lib/app';
 import { followSystem, setAppearance } from '@/lib/appearance';
+import { MOD } from '@/lib/keys';
 import { ARRIVE } from '@/lib/motion';
 import type { Appearance, Shared } from '@/types';
 
@@ -38,6 +40,21 @@ const ADMIN: Item[] = [
     { key: 'support', label: 'Support', href: '/admin/support', icon: 'support' },
     { key: 'log', label: 'Admin log', href: '/admin/log', icon: 'log' },
 ];
+
+/** The web dashboard is new: always beside the name (and in the phone's top bar). Opens Contact us. */
+function BetaChip() {
+    return (
+        <Link
+            href="/help?tab=contact"
+            title="The web dashboard is new. Tell us what you find, and anything that doesn’t work."
+            aria-label="Beta: the web dashboard is new. Tell us what you find"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex h-[22px] flex-none items-center rounded-lg bg-navy-tint px-2 text-[12px] font-extrabold text-navy-text hover:bg-navy-soft/60"
+        >
+            Beta
+        </Link>
+    );
+}
 
 function NavLink({ item, active, onGo }: { item: Item; active: boolean; onGo?: () => void }) {
     const cls = `flex h-10 items-center gap-3 rounded-xl px-3 text-[15px] font-bold transition-colors ${active ? 'bg-card text-ink' : 'text-ink hover:bg-card/60'}`;
@@ -104,7 +121,10 @@ function BudgetSwitcher() {
                                 role="menuitem"
                                 onClick={() => {
                                     setOpen(false);
-                                    if (b.id !== budgetId) router.post('/budget/switch', { budget_id: b.id });
+                                    if (b.id === budgetId) return;
+                                    // Pages prefetched for the old budget must not be shown for the new one.
+                                    router.flushAll();
+                                    router.post('/budget/switch', { budget_id: b.id });
                                 }}
                                 className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left hover:bg-canvas ${b.id === budgetId ? 'bg-canvas' : ''}`}
                             >
@@ -177,15 +197,13 @@ function Nav({ active, onGo }: { active: string; onGo?: () => void }) {
     const { me } = usePage<Shared>().props;
     return (
         <nav aria-label="Main" className="flex min-h-full flex-col gap-4 px-3.5 py-5">
-            <Link href="/" className="flex items-center gap-2.5 px-2" onClick={onGo}>
-                <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
-                    <rect width="34" height="34" rx="10" className="fill-card" />
-                    <rect x=".75" y=".75" width="32.5" height="32.5" rx="9.25" fill="none" className="stroke-line" strokeWidth="1.5" />
-                    <path d="M9 11h16v7.5a8 8 0 0 1-16 0z" fill="none" className="stroke-teal" strokeWidth="2.4" strokeLinejoin="round" />
-                    <circle cx="17" cy="11.5" r="4" fill="#03C7AA" className="stroke-teal" strokeWidth="1.6" />
-                </svg>
+            <div className="flex items-center gap-2.5 px-2">
+            <Link href="/" className="flex items-center gap-2.5" onClick={onGo}>
+                <Logo size={30} />
                 <span className="text-xl font-extrabold tracking-[-0.02em]">PocFin</span>
             </Link>
+            <BetaChip />
+            </div>
             <BudgetSwitcher />
             <div className="flex flex-col gap-0.5">
                 {MONEY.map((item) => (
@@ -393,7 +411,8 @@ export default function Shell({ active, title, children }: { active: string; tit
                         <button type="button" onClick={() => setMenu(true)} aria-label="Open menu" aria-expanded={menu} className="grid size-11 place-items-center rounded-[14px] bg-card">
                             <Icon name="menu" stroke={2.2} />
                         </button>
-                        <span className="flex-1 truncate text-lg font-extrabold">{title}</span>
+                        <span className="min-w-0 flex-1 truncate text-lg font-extrabold">{title}</span>
+                        <BetaChip />
                         <button type="button" onClick={() => setSearch(true)} aria-label="Search" className="grid size-11 place-items-center rounded-[14px] bg-card">
                             <Icon name="search" stroke={2.2} />
                         </button>
@@ -430,7 +449,7 @@ export default function Shell({ active, title, children }: { active: string; tit
                             <button type="button" onClick={() => setSearch(true)} className="flex h-11 min-w-[200px] flex-1 items-center gap-2 rounded-[14px] bg-card px-3.5 text-left text-[15px] font-bold text-muted sm:max-w-[320px] sm:flex-none">
                                 <Icon name="search" size={18} />
                                 <span className="flex-1">Search</span>
-                                <kbd className="rounded-lg bg-segment px-2 py-0.5 font-sans text-xs font-extrabold text-slate">⌘K</kbd>
+                                <kbd className="rounded-lg bg-segment px-2 py-0.5 font-sans text-xs font-extrabold text-slate">{MOD === '⌘' ? '⌘K' : 'Ctrl K'}</kbd>
                             </button>
                             <div className="flex-1" />
                             <AppearanceSwitch />

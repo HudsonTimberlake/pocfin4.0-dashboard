@@ -1,4 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
+import HelpButton from '@/components/HelpButton';
 import { type ReactNode } from 'react';
 import Icon from '@/components/Icon';
 import Money from '@/components/Money';
@@ -39,7 +40,10 @@ export default function Recaps(p: Props) {
             <div className="flex flex-col gap-5">
                 <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
                     <div className="min-w-[240px] flex-1">
-                        <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Recaps</h1>
+                        <div className="flex items-center gap-2.5">
+                            <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Recaps</h1>
+                            <HelpButton topic="recaps" />
+                        </div>
                         <p className="mt-0.5 text-[15px] text-slate">One for each finished month</p>
                     </div>
                     {r ? (

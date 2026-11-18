@@ -1,9 +1,10 @@
 import { Link, router } from '@inertiajs/react';
 import { motion, useReducedMotion } from 'motion/react';
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import Bar from '@/components/Bar';
 import Icon from '@/components/Icon';
 import Money from '@/components/Money';
+import MonthPicker from '@/components/MonthPicker';
 import { cleanTyped, toAmount, ymd } from '@/lib/amount';
 import { useApp } from '@/lib/app';
 import { formatMoney, toCents } from '@/lib/format';
@@ -184,7 +185,15 @@ export function GoalPanel({ goal, today, onClose }: { goal: Goal; today: string;
                 ) : null}
             </div>
 
-            {goal.kind === 'value' && !finished ? <PlanChart goal={goal} today={today} /> : <Squares goal={goal} />}
+            {/* The list holds no months or plan details: keep the space until the goal's own figures
+                arrive, then draw the chart once (no second draw, no jump). */}
+            {goal.cycles === undefined ? (
+                <div aria-label="Loading" className={`animate-pulse rounded-xl bg-canvas ${goal.kind === 'value' && !finished ? 'h-[190px]' : 'h-[96px]'}`} />
+            ) : goal.kind === 'value' && !finished ? (
+                <PlanChart goal={goal} today={today} />
+            ) : (
+                <Squares goal={goal} />
+            )}
 
             {!finished ? (
                 <dl className="flex flex-col">
@@ -306,7 +315,7 @@ function openInCalculator(goal: Goal) {
         inflation: Number(goal.inflation_pct ?? 5),
     };
     try {
-        sessionStorage.setItem('pocfin-calc-prefill', JSON.stringify({ kind: 'retirement', inputs }));
+        sessionStorage.setItem('pocfin-calc-prefill', JSON.stringify({ kind: 'retirement', inputs, goal: { id: goal.id, name: goal.name } }));
     } catch {
         /* opens with its own figures */
     }
@@ -376,30 +385,16 @@ function Amount({ label, value, set, error }: { label: string; value: string; se
     );
 }
 
-/** Months as a list: from the month after `from`, about 5 years ahead (value goals go further). */
+/** A month from the one after `from`, about 5 years ahead (value goals go further). */
 function MonthPick({ label, value, set, from, error, years = 5 }: { label: string; value: string; set: (v: string) => void; from: string; error?: string; years?: number }) {
     const start = new Date(`${from.slice(0, 7)}-01T00:00:00`);
-    const months = Array.from({ length: years * 12 }, (_, i) => {
-        const d = new Date(start.getFullYear(), start.getMonth() + i + 1, 1);
+    const at = (n: number) => {
+        const d = new Date(start.getFullYear(), start.getMonth() + n, 1);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    });
-    if (value && !months.includes(value)) months.unshift(value);
-    return (
-        <label className="flex flex-col gap-1 text-[13px] font-bold text-slate">
-            {label}
-            <select value={value} onChange={(e) => set(e.target.value)} className={field}>
-                <option value="" disabled>
-                    Choose a month
-                </option>
-                {months.map((m) => (
-                    <option key={m} value={m}>
-                        {monthLabel(m)}
-                    </option>
-                ))}
-            </select>
-            {error ? <span className="text-red-ink">{error}</span> : null}
-        </label>
-    );
+    };
+    const min = value && value < at(1) ? value : at(1);
+    const max = value && value > at(years * 12) ? value : at(years * 12);
+    return <MonthPicker label={label} value={value} onChange={set} min={min} max={max} error={error} />;
 }
 
 const KINDS: { kind: GoalKind; label: string; sub: string }[] = [
@@ -429,6 +424,8 @@ export function NewGoal({ accounts, purposes, takenAccounts, takenPurposes, cycl
     const [pre] = useState(takeGoalPrefill);
     const [step, setStep] = useState<1 | 2>(pre ? 2 : 1);
     const [kind, setKind] = useState<GoalKind>(pre ? 'value' : 'target');
+    // The kind step 2 was filled for: picking another kind empties what was typed for the old one.
+    const filledFor = useRef<GoalKind | null>(pre ? 'value' : null);
     const [name, setName] = useState(pre?.name ?? '');
     const [place, setPlace] = useState('');
     const [target, setTarget] = useState(pre?.target ?? '');
@@ -503,19 +500,49 @@ export function NewGoal({ accounts, purposes, takenAccounts, takenPurposes, cycl
                             </button>
                         ))}
                     </div>
-                    <button type="button" autoFocus onClick={() => { setStep(2); setPlace(''); }} className="h-11 rounded-xl bg-mint text-[15px] font-extrabold text-on-mint">
+                    <button
+                        type="button"
+                        autoFocus
+                        onClick={() => {
+                            if (filledFor.current !== kind) {
+                                setTarget('');
+                                setEach('');
+                                setBy('');
+                                setStarts(0);
+                                setPlace('');
+                                setErrors({});
+                            }
+                            filledFor.current = kind;
+                            setStep(2);
+                        }}
+                        className="h-11 rounded-xl bg-mint text-[15px] font-extrabold text-on-mint"
+                    >
                         Next
                     </button>
                 </>
             ) : (
                 <>
+                    {(() => {
+                        const k = KINDS.find((x) => x.kind === kind)!;
+                        return (
+                            <div className="flex items-start gap-3 rounded-2xl bg-tint px-4 py-3 ring-2 ring-mint ring-inset">
+                                <span className="min-w-0 flex-1">
+                                    <span className="block text-[15px] font-extrabold">{k.label}</span>
+                                    <span className="block text-[13px] text-slate">{k.sub}</span>
+                                </span>
+                                <button type="button" onClick={() => setStep(1)} className="flex-none text-[13.5px] font-extrabold text-teal hover:underline">
+                                    Change
+                                </button>
+                            </div>
+                        );
+                    })()}
                     <label className="flex flex-col gap-1 text-[13px] font-bold text-slate">
                         Name
                         <input autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={100} placeholder={kind === 'value' ? 'Retire at 65' : 'Car deposit'} className={field} />
                         {errors.name ? <span className="text-red-ink">{errors.name}</span> : null}
                     </label>
                     <label className="flex flex-col gap-1 text-[13px] font-bold text-slate">
-                        Kept in
+                        Attach it to an account or purpose
                         <select value={place} onChange={(e) => setPlace(e.target.value)} className={field}>
                             <option value="" disabled>
                                 Choose an account or purpose
@@ -532,18 +559,14 @@ export function NewGoal({ accounts, purposes, takenAccounts, takenPurposes, cycl
                     {kind !== 'habit' ? <Amount label={kind === 'yearly' ? 'Amount a year' : kind === 'value' ? 'Grow to (in the rands of that day)' : 'Amount'} value={target} set={setTarget} error={errors.target_amount} /> : null}
                     {kind === 'habit' || kind === 'value' ? <Amount label="Each month" value={each} set={setEach} error={errors.amount_per_cycle} /> : null}
                     {kind === 'target' || kind === 'value' ? <MonthPick label="By" value={by} set={setBy} from={startMonth(starts)} years={kind === 'value' ? 45 : 5} error={errors.target_month} /> : null}
-                    <label className="flex flex-col gap-1 text-[13px] font-bold text-slate">
-                        Starts
-                        <select value={starts} onChange={(e) => setStarts(Number(e.target.value))} className={field}>
-                            {Array.from({ length: 13 }, (_, n) => (
-                                <option key={n} value={n}>
-                                    {monthLabel(startMonth(n).slice(0, 7)).split(' ')[0]}
-                                    {n === 0 ? ' (this month)' : ` ${startMonth(n).slice(0, 4)}`}
-                                </option>
-                            ))}
-                        </select>
-                        {errors.starts_on ? <span className="text-red-ink">{errors.starts_on}</span> : null}
-                    </label>
+                    <MonthPicker
+                        label="Starts"
+                        value={startMonth(starts).slice(0, 7)}
+                        onChange={(m) => setStarts(Math.max(0, monthsFrom(cycleStart, `${m}-01`)))}
+                        min={cycleStart.slice(0, 7)}
+                        max={startMonth(12).slice(0, 7)}
+                        error={errors.starts_on}
+                    />
                     <p className="num rounded-xl bg-tint px-3.5 py-2.5 text-[13.5px] font-bold text-tint-sub">{plan} PocFin suggests it on payday; nothing moves without you.</p>
                     <label className="flex items-center gap-2 text-[14px] font-bold">
                         <input type="checkbox" checked={remind} onChange={(e) => setRemind(e.target.checked)} className="size-4 accent-[var(--mint)]" />

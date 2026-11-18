@@ -51,3 +51,15 @@ A Laravel app on the `dashboard.pocfin.com` subdomain (HostAfrica), document roo
 
 ## Account area (2026-11-18)
 Recaps, Premium, Invite, Account (profile, password, sessions) and DeleteAccount are Inertia pages from `RecapController`, `PremiumController`, `InviteController`, `AccountController`; writes are normal Inertia posts that redirect back with a `status` toast or validation `errors`. A successful account delete answers `leave(route('sign-in'))`.
+
+## Owner review fixes (2026-11-18)
+- **Icons** are Phosphor (`@phosphor-icons/react`), the same glyph the app uses for each thing: `components/Icon.tsx` maps names to them. The pocket gauge (`Gauge.tsx`) is the app's PocketGauge shape with its seam.
+- **"?" help** on every page title: `components/HelpButton.tsx` (hover shows what the page is for, click opens the whole explanation with a link to its guide, `/help?guide=<key>`). Words in `shared/help.ts`, copied from the app's `helpContent.ts` (click, not tap) plus web-only entries in `WEB`; `TOPIC_GUIDE` picks the guide.
+- **No envelope kinds** on the web, as in the app: one list; a row says "Saving up" when it holds more than its monthly amount and "Overspent" below zero. `kind` is no longer sent.
+- Shortcut labels use `lib/keys.ts` (`⌘` on a Mac, `Ctrl` elsewhere).
+- Short tasks open in `components/SidePanel.tsx` (the Add panel's slide-out, portalled to `<body>`): investment Add money, Withdraw and Update values. Fixed layers that must sit over the page go through a portal: the page's fade-in transform traps them otherwise.
+- Never nest a `<form>` in another: the envelope panel's own fields use a detached form (`form={id}`) so a row's edit form can sit inside it.
+- Month and year: `components/MonthPicker.tsx` (goal By and Starts).
+
+## Admin devices and lock (2026-11-18)
+The admin user page (`resources/views/admin/user.blade.php`) has **Devices and access**: their sign-ins, and one form whose buttons post `do` = `device:{id}`, `all`, `lock` or `unlock` with the admin's password and a note to `POST /admin/users/{u}/access` (`Admin\UserController::access`), which calls the API's matching admin path. Hidden for an admin's own account and other admins (the API refuses them too). Locked accounts show a red Locked chip on the page and in the users list.

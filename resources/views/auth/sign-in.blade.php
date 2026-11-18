@@ -5,6 +5,7 @@
         <div>
             <h1 class="text-[28px] leading-[34px] font-extrabold tracking-[-0.025em]">Sign in to your budget</h1>
             <p class="mt-2 text-[15.5px] leading-[23px] text-slate">Use the email and password you use in the PocFin app.</p>
+            <p class="mt-3 flex items-start gap-2 rounded-[14px] bg-canvas px-3.5 py-2.5 text-[13.5px] leading-5 text-slate"><x-beta class="mt-px"/><span>The web dashboard is new. It works on the same budget as your app, so anything you change here shows on your phone too.</span></p>
         </div>
         <x-status/>
         <div>

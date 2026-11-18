@@ -11,7 +11,7 @@ use Inertia\Response;
 
 /**
  * W9 Edit envelopes (version 2): "Does my plan fit my income?" Monthly income against what's
- * budgeted each month first, then sort, plans and one table of names, kinds and amounts, with one
+ * budgeted each month first, then sort, plans and one table of names and amounts, with one
  * Save (all or nothing on the API's side).
  */
 class EditEnvelopesController extends Controller
@@ -42,7 +42,7 @@ class EditEnvelopesController extends Controller
             'create' => ['sometimes', 'array', 'max:50'],
             'create.*.name' => ['required', 'string', 'max:100'],
             'create.*.budgeted_amount' => ['required', 'string', 'max:20'],
-            'create.*.kind' => ['required', 'in:everyday,saving_up'],
+            'create.*.kind' => ['sometimes', 'in:everyday,saving_up'],
             'update' => ['sometimes', 'array', 'max:200'],
             'update.*.id' => ['required', 'integer'],
             'update.*.name' => ['sometimes', 'required', 'string', 'max:100'],

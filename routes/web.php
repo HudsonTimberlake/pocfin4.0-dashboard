@@ -162,6 +162,7 @@ Route::middleware(['signed.in', 'idle:admin', 'admin.only'])->prefix('admin')->n
     Route::post('/users/{user}/premium', [AdminUserController::class, 'premium'])->whereNumber('user')->name('user.premium');
     Route::post('/users/{user}/sync', [AdminUserController::class, 'sync'])->whereNumber('user')->name('user.sync');
     Route::post('/users/{user}/verification', [AdminUserController::class, 'verification'])->whereNumber('user')->name('user.verification');
+    Route::post('/users/{user}/access', [AdminUserController::class, 'access'])->whereNumber('user')->name('user.access');
     Route::get('/support', [AdminSupportController::class, 'index'])->name('support');
     Route::post('/support/{thread}/reply', [AdminSupportController::class, 'reply'])->whereNumber('thread')->name('support.reply');
     Route::post('/support/{thread}/status', [AdminSupportController::class, 'status'])->whereNumber('thread')->name('support.status');

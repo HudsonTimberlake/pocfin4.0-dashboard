@@ -1,4 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
+import { MOD } from '@/lib/keys';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import EnvelopeIcon from '@/components/EnvelopeIcon';
@@ -420,7 +421,7 @@ export default function AddPanel({ open, start, onClose }: { open: boolean; star
                                     {done ? 'Saved' : busy ? 'Saving…' : 'Save'}
                                 </button>
                             </div>
-                            <div className="hidden text-center text-[12.5px] text-slate sm:block">Enter saves · ⌘ Enter saves and adds another · Esc closes</div>
+                            <div className="hidden text-center text-[12.5px] text-slate sm:block">Enter saves · {MOD} Enter saves and adds another · Esc closes</div>
                         </div>
                     </motion.form>
                 </>

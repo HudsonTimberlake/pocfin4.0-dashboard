@@ -1,4 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import HelpButton from '@/components/HelpButton';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import EnvelopeIcon from '@/components/EnvelopeIcon';
@@ -298,7 +299,10 @@ export default function Allocate(p: Props) {
                     <Crumbs />
                     <div className="flex flex-wrap items-end justify-between gap-3">
                         <div>
-                            <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Allocate income</h1>
+                            <div className="flex items-center gap-2.5">
+                                <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Allocate income</h1>
+                                <HelpButton topic="allocate" />
+                            </div>
                             <p className="mt-0.5 text-[15px] text-slate">
                                 {incomeName(d)} · {dayLabel(d.date)} · {formatMoney(d.amount)}
                             </p>
@@ -504,12 +508,12 @@ function AllocatedCard({ result, deposit, onContinue }: { result: { lines: Line[
                         transition={{ duration: 0.32, ease: ARRIVE }}
                         className="flex w-full max-w-[420px] flex-col gap-4 rounded-[28px] bg-card p-6"
                     >
-                        <span className="grid size-14 place-items-center rounded-full bg-tint text-teal">
+                        <span className="grid size-14 place-items-center self-center rounded-full bg-tint text-teal">
                             <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true">
                                 <motion.path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" initial={reduced ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.4, delay: 0.15 }} />
                             </svg>
                         </span>
-                        <div>
+                        <div className="text-center">
                             <h2 id="allocated-title" className="text-[24px] font-extrabold tracking-[-0.02em]">
                                 {formatMoney(result.total)} allocated
                             </h2>

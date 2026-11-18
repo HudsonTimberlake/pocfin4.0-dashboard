@@ -1,4 +1,4 @@
-import { createInertiaApp } from '@inertiajs/react';
+import { createInertiaApp, router } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 import type { ComponentType } from 'react';
 
@@ -6,6 +6,13 @@ import type { ComponentType } from 'react';
 // so the menu and top bar stay mounted while pages swap.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const pages = import.meta.glob<{ default: ComponentType<any> }>('./pages/**/*.tsx', { eager: true });
+
+// Menu links prefetch their page on hover and keep it for a while. Any change (switching budget,
+// saving, deleting) makes those copies out of date, so they are thrown away once it is done:
+// otherwise the next page could show the old budget or the old figures.
+router.on('finish', (event) => {
+    if (event.detail.visit.method !== 'get') router.flushAll();
+});
 
 createInertiaApp({
     title: (title) => (title ? `${title} · PocFin` : 'PocFin'),

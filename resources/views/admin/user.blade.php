@@ -15,6 +15,8 @@
         'end' => 'Ended',
         default => $g['action'],
     }.($g['source'] === 'referral' ? ' · referral' : '').($g['note'] ?? null ? ' · '.$g['note'] : '');
+    $devices = $u['devices'] ?? [];
+    $locked = $user['locked'] ?? null;
     $fact = fn ($label, $value) => ['label' => $label, 'value' => $value];
     $facts = [
         $fact('Joined', day($user['joined_at'], false)),
@@ -33,6 +35,7 @@
         <div class="mt-2 flex flex-wrap items-center gap-3.5">
             <span class="grid size-[52px] place-items-center rounded-full bg-tint text-xl font-extrabold text-teal" aria-hidden="true">{{ initials($user['name']) }}</span>
             <div class="min-w-[240px] flex-1"><h1 class="text-[30px] leading-9 font-extrabold tracking-[-0.025em]">{{ $user['name'] }}</h1><p class="sub">{{ $user['email'] }}</p></div>
+            @if ($locked)<span class="chip bg-red-tint text-red-ink">Locked</span>@endif
             @include('admin.badge')
         </div>
     </header>
@@ -54,6 +57,55 @@
                         <button class="btn-quiet">Send a new verification code</button>
                     </form>
                 @endunless
+            </section>
+
+            <section aria-labelledby="dv" class="card">
+                <div class="flex flex-wrap items-baseline justify-between gap-2.5">
+                    <h2 id="dv" class="text-lg font-extrabold">Devices and access</h2>
+                    @if ($locked)<span class="chip bg-red-tint text-red-ink">Locked</span>@endif
+                </div>
+                <p class="mt-0.5 text-[13.5px] text-slate">Where they’re signed in. After a breach: sign out the device you don’t trust, or lock the account and ask them to reset their password.</p>
+                @if ($locked)
+                    <p class="mt-3 flex items-start gap-2.5 rounded-[14px] bg-red-tint px-4 py-3 text-sm leading-5 text-red-ink"><x-icon name="lock" class="mt-px"/>Locked {{ day($locked['at']) }}{{ $locked['by'] ? ' by '.$locked['by'] : '' }}. No sign-in works, on the phone or here, until you unlock it. Their money is untouched.</p>
+                @endif
+                @if ($user['is_admin'] ?? false)
+                    <p class="mt-3 text-sm text-slate">An admin’s own devices are managed from their Profile and security page.</p>
+                @endif
+                <form method="POST" action="{{ route('admin.user.access', $user['id']) }}" class="mt-3.5 flex flex-col gap-3.5">
+                    @csrf
+                    <div class="flex flex-col">
+                        @forelse ($devices as $d)
+                            <div class="flex items-center gap-3 border-t border-rule py-3 first:border-t-0">
+                                <span class="grid size-10 flex-none place-items-center rounded-full bg-canvas text-slate"><x-icon :name="$d['client'] === 'web' ? 'laptop' : 'phone'" :size="18"/></span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="block truncate text-[15px] font-bold">{{ $d['name'] }}</span>
+                                    <span class="block text-[13px] text-slate">{{ $d['client'] === 'web' ? 'Dashboard' : 'App' }} · signed in {{ day($d['created_at'], false) }}{{ $d['last_used_at'] ? ' · last used '.day($d['last_used_at']) : ' · not used yet' }}</span>
+                                </span>
+                                @unless ($user['is_admin'] ?? false)
+                                    <button name="do" value="device:{{ $d['id'] }}" class="btn-quiet h-10 flex-none px-3.5 text-[14px]">Sign out</button>
+                                @endunless
+                            </div>
+                        @empty
+                            <p class="sub">{{ $locked ? 'Signed out everywhere.' : 'Not signed in anywhere.' }}</p>
+                        @endforelse
+                    </div>
+                    @unless ($user['is_admin'] ?? false)
+                        <div class="grid gap-2.5 sm:grid-cols-2">
+                            <div><label for="an" class="label">Note for the log</label><input id="an" name="note" maxlength="120" placeholder="Reported a lost phone" class="field h-11"></div>
+                            <div><label for="ap" class="label">Your password</label><input id="ap" name="password" type="password" autocomplete="current-password" required class="field h-11">@error('password')<p class="field-error">{{ $message }}</p>@enderror</div>
+                        </div>
+                        @error('user')<p class="field-error">{{ $message }}</p>@enderror
+                        <div class="flex flex-wrap gap-2.5">
+                            @if (count($devices) > 1)<button name="do" value="all" class="btn-quiet">Sign out everywhere</button>@endif
+                            @if ($locked)
+                                <button name="do" value="unlock" class="btn-quiet">Unlock the account</button>
+                            @else
+                                <button name="do" value="lock" class="btn-quiet text-red-ink">Lock the account</button>
+                            @endif
+                        </div>
+                        <p class="ml-1 text-[13px] text-slate">Signing out ends those sign-ins at once; they can sign in again. Locking also refuses every new sign-in until you unlock it. Everything here is logged.</p>
+                    @endunless
+                </form>
             </section>
 
             <section aria-labelledby="su" class="card">

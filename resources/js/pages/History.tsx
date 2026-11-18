@@ -1,4 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import HelpButton from '@/components/HelpButton';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import HistoryPanel, { isInvestment, type HistoryRow, type Named, type Tab } from '@/components/HistoryPanel';
@@ -242,7 +243,10 @@ export default function History(p: Props) {
             <div className="flex flex-col gap-4">
                 <div className="flex flex-wrap items-end gap-3">
                     <div className="min-w-0 flex-1">
-                        <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">History</h1>
+                        <div className="flex items-center gap-2.5">
+                            <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">History</h1>
+                            <HelpButton topic="budget-history" />
+                        </div>
                         <p className="mt-0.5 text-[15px] text-slate">{summary}</p>
                     </div>
                     <a href={`/history/export?tab=${p.tab}`} className="flex h-11 items-center gap-2 rounded-[14px] bg-card px-4 text-[15px] font-extrabold hover:bg-segment">
