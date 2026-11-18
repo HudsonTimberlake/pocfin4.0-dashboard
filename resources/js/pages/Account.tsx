@@ -1,4 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import HelpButton from '@/components/HelpButton';
 import { type ReactNode } from 'react';
 import Icon from '@/components/Icon';
 import Shell from '@/components/Shell';
@@ -25,7 +26,10 @@ export default function Account({ sessions }: { sessions: Session[] }) {
             <Head title="Profile and security" />
             <div className="flex max-w-[880px] flex-col gap-5">
                 <div>
-                    <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Profile and security</h1>
+                    <div className="flex items-center gap-2.5">
+                        <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Profile and security</h1>
+                        <HelpButton topic="profile-details" />
+                    </div>
                     <p className="mt-0.5 text-[15px] text-slate">Changes here apply in the app too</p>
                 </div>
 

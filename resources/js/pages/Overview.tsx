@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
+import HelpButton from '@/components/HelpButton';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import RecentRow from '@/components/RecentRow';
@@ -184,7 +185,10 @@ export default function Overview(p: Props) {
             <div className="mx-auto flex w-full max-w-[760px] flex-col gap-9">
                 <section aria-label="Left to spend" className="flex items-center gap-3 rounded-[28px] bg-card px-5 py-6 sm:gap-6 sm:px-9 sm:py-8">
                     <div className="min-w-0 flex-1">
-                        <div className="text-[15px] font-bold text-slate">Left to spend in {monthName(s.cycle.start)}</div>
+                        <div className="flex items-center gap-2 text-[15px] font-bold text-slate">
+                            Left to spend in {monthName(s.cycle.start)}
+                            <HelpButton topic="overview" label="Help with Overview" />
+                        </div>
                         <div className={`mt-1 text-[42px] leading-[50px] font-extrabold tracking-[-0.04em] sm:text-[68px] sm:leading-[76px] ${isNegative(s.left_to_spend) ? 'text-red' : ''}`}>
                             <Money amount={s.left_to_spend} />
                         </div>
@@ -256,7 +260,6 @@ export default function Overview(p: Props) {
                 </Section>
 
                 <Section title="Recent" link={{ href: '/history', label: 'All history' }}>
-                    <p className="mx-1 -mt-2 mb-2.5 text-[13px] text-slate">Click a row to change it</p>
                     <div className="rounded-[22px] bg-card p-2">
                         {p.expenses.length === 0 ? <p className="px-3 py-3 text-[15px] text-slate">Nothing added yet this month.</p> : null}
                         <AnimatePresence initial={false}>

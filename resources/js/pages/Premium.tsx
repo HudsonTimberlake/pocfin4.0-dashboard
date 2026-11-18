@@ -1,4 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
+import HelpButton from '@/components/HelpButton';
 import { type ReactNode } from 'react';
 import Icon from '@/components/Icon';
 import Shell from '@/components/Shell';
@@ -49,7 +50,10 @@ export default function Premium({ subscription: sub, events, budgets, manage }: 
             <Head title="Premium" />
             <div className="flex max-w-[1040px] flex-col gap-5">
                 <div>
-                    <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Premium</h1>
+                    <div className="flex items-center gap-2.5">
+                        <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Premium</h1>
+                        <HelpButton topic="premium" />
+                    </div>
                     <p className="mt-0.5 text-[15px] text-slate">Budgeting together, past recaps and receipt photos</p>
                 </div>
 

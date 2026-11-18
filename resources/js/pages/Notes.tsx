@@ -1,4 +1,5 @@
 import { Head, usePage } from '@inertiajs/react';
+import HelpButton from '@/components/HelpButton';
 import { AnimatePresence, motion } from 'motion/react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import Shell from '@/components/Shell';
@@ -82,7 +83,10 @@ export default function Notes(p: Props) {
             <Head title="Notes" />
             <div className="flex max-w-[760px] flex-col gap-5">
                 <div>
-                    <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Notes</h1>
+                    <div className="flex items-center gap-2.5">
+                        <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Notes</h1>
+                        <HelpButton topic="notes" />
+                    </div>
                     <p className="mt-0.5 text-[15px] text-slate">What to do next, or why a month looked the way it did.</p>
                 </div>
 

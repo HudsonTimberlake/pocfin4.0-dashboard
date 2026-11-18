@@ -22,6 +22,7 @@
                 <header class="flex h-[60px] items-center gap-2 border-b border-line pr-2 pl-1">
                     <button type="button" @click="flip" :aria-expanded="open" aria-label="Open menu" class="grid size-11 place-items-center"><x-icon name="menu" :size="24" :stroke="2"/></button>
                     <x-logo :size="28"/>
+                    <x-beta/>
                     <span class="flex-1 truncate text-[17px] font-extrabold">{{ $title }}</span>
                     @if ($b = $shell->budget())
                         <span class="flex h-9 items-center gap-1.5 rounded-full bg-white pr-2.5 pl-1.5 text-[13.5px] font-bold"><span class="grid size-[26px] place-items-center rounded-[9px] bg-tint text-[11px] font-extrabold text-teal">{{ \App\Services\Shell::initials($b['name']) }}</span><span class="max-w-[110px] truncate">{{ $b['name'] }}</span></span>

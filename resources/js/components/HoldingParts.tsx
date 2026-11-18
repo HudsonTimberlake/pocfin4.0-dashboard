@@ -44,7 +44,7 @@ const fromRand = (rand: string, ccy: Ccy) => (ccy.usd ? randToUsd(rand, ccy.rate
  * just before goes with it, filled in from what it's worth now (the app does the same), so the
  * unit price is current. A dollar account types dollars; PocFin stores rand.
  */
-export function HoldingMoney({ accountId, kind, holdings, holdingId, purposes, ccy, onDone }: { accountId: number; kind: 'add' | 'expense'; holdings: Holding[]; holdingId?: number; purposes: Purpose[]; ccy: Ccy; onDone: () => void }) {
+export function HoldingMoney({ accountId, kind, holdings, holdingId, purposes, ccy, onDone, plain = false }: { accountId: number; kind: 'add' | 'expense'; holdings: Holding[]; holdingId?: number; purposes: Purpose[]; ccy: Ccy; onDone: () => void; plain?: boolean }) {
     const { toast } = useApp();
     const [hid, setHid] = useState(holdingId ?? holdings[0]?.id ?? 0);
     const h = holdings.find((x) => x.id === hid);
@@ -96,8 +96,8 @@ export function HoldingMoney({ accountId, kind, holdings, holdingId, purposes, c
     if (!holdings.length) return <p className="rounded-2xl bg-canvas p-3.5 text-[14px] text-slate">Add a holding first: money goes into a holding, for a purpose.</p>;
 
     return (
-        <form onSubmit={send} onKeyDown={(e) => e.key === 'Escape' && onDone()} className="flex flex-col gap-3 rounded-2xl bg-canvas p-3.5">
-            <p className="text-[13px] font-bold text-slate">{kind === 'add' ? 'Outside money, like a contribution from your salary at work. It never counts as income.' : 'It leaves PocFin, like a sale paid out to your bank.'}</p>
+        <form onSubmit={send} onKeyDown={(e) => e.key === 'Escape' && onDone()} className={plain ? 'flex flex-col gap-4' : 'flex flex-col gap-3 rounded-2xl bg-canvas p-3.5'}>
+            <p className={plain ? 'rounded-xl bg-canvas px-3.5 py-2.5 text-[13.5px] font-semibold text-slate' : 'text-[13px] font-bold text-slate'}>{kind === 'add' ? 'Outside money, like a contribution from your salary at work. It never counts as income.' : 'It leaves PocFin, like a sale paid out to your bank.'}</p>
             {holdingId === undefined ? (
                 <label className="flex flex-col gap-1 text-[13px] font-bold text-slate">
                     Holding
@@ -140,7 +140,7 @@ export function HoldingMoney({ accountId, kind, holdings, holdingId, purposes, c
             {errors.date ? <span className="text-[13px] font-bold text-red-ink">{errors.date}</span> : null}
             {errors.form ? <span className="text-[13px] font-bold text-red-ink">{errors.form}</span> : null}
             <div className="flex gap-2">
-                <button type="submit" disabled={!hasAmount(typed) || busy || (pid === NEW && !newName.trim())} className="h-10 flex-1 rounded-xl bg-mint text-[14.5px] font-extrabold text-on-mint disabled:opacity-60">
+                <button type="submit" disabled={!hasAmount(typed) || busy || (pid === NEW && !newName.trim())} className="h-11 flex-1 rounded-xl bg-mint text-[14.5px] font-extrabold text-on-mint disabled:opacity-60">
                     {busy ? 'Saving…' : kind === 'add' ? 'Add money' : 'Withdraw'}
                 </button>
                 <button type="button" onClick={onDone} className="h-10 rounded-xl px-3 text-[14.5px] font-bold text-teal">

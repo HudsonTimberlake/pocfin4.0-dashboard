@@ -52,6 +52,53 @@ class AdminPagesTest extends TestCase
             ->assertSee('Envelopes, amounts, transactions, notes and receipts are never shown here.');
     }
 
+    public function test_one_user_shows_their_devices_and_the_lock(): void
+    {
+        $this->fakeUser();
+
+        $this->admin()->get('/admin/users/9')->assertOk()
+            ->assertSee('Devices and access')
+            ->assertSee('Not signed in anywhere.')
+            ->assertSee('Lock the account');
+    }
+
+    public function test_devices_are_listed_and_a_locked_account_says_so(): void
+    {
+        Http::fake([
+            'api.test/api/dashboard/budgets' => Http::response(self::budgets()),
+            'api.test/api/admin/users/9' => Http::response([
+                'user' => ['id' => 9, 'name' => 'Sipho Dlamini', 'email' => 'sipho@example.com', 'joined_at' => '2026-10-31', 'verified' => true, 'plan' => 'free', 'subscriber' => false, 'premium_budgets' => 0, 'budgets_count' => 0, 'app_platform' => 'ios', 'app_version' => '4.0.4', 'last_seen_at' => null, 'referral_code' => 'SIPHO7', 'invited_by' => null, 'friends_invited' => 0, 'sessions' => 2, 'locked' => ['at' => '2026-11-18T09:00:00+00:00', 'by' => 'Hudson'], 'is_admin' => false],
+                'devices' => [
+                    ['id' => 51, 'name' => 'iPhone 16', 'client' => 'app', 'created_at' => '2026-11-01T08:00:00+00:00', 'last_used_at' => '2026-11-17T20:00:00+00:00', 'expires_at' => null],
+                    ['id' => 52, 'name' => 'Dashboard · Safari', 'client' => 'web', 'created_at' => '2026-11-17T08:00:00+00:00', 'last_used_at' => null, 'expires_at' => '2026-11-17T20:00:00+00:00'],
+                ],
+                'subscription' => ['active' => false, 'until' => null, 'renews' => false, 'store' => null, 'product' => null, 'period' => null, 'synced_at' => null, 'covered_budget_ids' => [], 'months_paid' => 0, 'since' => null, 'data' => []],
+                'budgets' => [], 'support' => [], 'log' => [],
+            ]),
+        ]);
+
+        $this->admin()->get('/admin/users/9')->assertOk()
+            ->assertSee('iPhone 16')->assertSee('Dashboard · Safari')
+            ->assertSee('value="device:51"', false)
+            ->assertSee('Sign out everywhere')
+            ->assertSee('Unlock the account')->assertDontSee('Lock the account')
+            ->assertSee('No sign-in works');
+    }
+
+    public function test_each_access_button_calls_its_own_path_with_the_password(): void
+    {
+        Http::fake(['api.test/api/admin/users/9/*' => Http::response(['devices' => [], 'locked' => null])]);
+        $paths = ['device:51' => 'devices/51/sign-out', 'all' => 'devices/sign-out', 'lock' => 'lock', 'unlock' => 'unlock'];
+
+        foreach ($paths as $do => $path) {
+            $this->admin()->post('/admin/users/9/access', ['do' => $do, 'note' => 'Breach', 'password' => 'admin-pass'])
+                ->assertRedirect('/admin/users/9')->assertSessionHas('status');
+            Http::assertSent(fn (Request $r) => $r->url() === "https://api.test/api/admin/users/9/$path" && $r['password'] === 'admin-pass' && $r['note'] === 'Breach');
+        }
+
+        $this->admin()->post('/admin/users/9/access', ['do' => 'delete', 'password' => 'admin-pass'])->assertSessionHasErrors('do');
+    }
+
     public function test_changing_premium_sends_the_password(): void
     {
         Http::fake(['api.test/api/admin/premium/budgets/30' => Http::response(['id' => 30])]);

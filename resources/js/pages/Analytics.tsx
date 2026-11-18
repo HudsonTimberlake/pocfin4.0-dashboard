@@ -1,4 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import HelpButton from '@/components/HelpButton';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import Icon from '@/components/Icon';
@@ -412,7 +413,10 @@ export default function Analytics(p: Props) {
             <div className="mx-auto flex w-full max-w-[980px] flex-col gap-5">
                 <div className="flex flex-wrap items-end gap-3">
                     <div className="min-w-[240px] flex-1">
-                        <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Analytics</h1>
+                        <div className="flex items-center gap-2.5">
+                            <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Analytics</h1>
+                            <HelpButton topic="budget-analytics" />
+                        </div>
                         <p className="mt-0.5 text-[15px] text-slate">How your month is going, and what to change</p>
                     </div>
                     <div role="tablist" aria-label="View" className="flex gap-1 rounded-xl bg-segment p-1">

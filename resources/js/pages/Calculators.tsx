@@ -1,3 +1,5 @@
+import { Car, ChartLineUp, House, TreePalm, type Icon as PhosphorIcon } from '@phosphor-icons/react';
+import HelpButton from '@/components/HelpButton';
 import { Head, router, usePage } from '@inertiajs/react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
@@ -34,11 +36,11 @@ type Kind = 'retirement' | 'growth' | 'home_loan' | 'car_loan';
 type Saved = { id: number; kind: Kind; name: string; inputs: Record<string, number | string | boolean | null>; author: string | null; updated_by: string | null; updated_at: string };
 type Props = { saved: Saved[]; prefill: { investments: { value: number; count: number } | null; spending_now: number | null }; calc: Kind | null; open: number | null };
 
-const KINDS: { key: Kind; label: string; icon: string }[] = [
-    { key: 'retirement', label: 'Retirement', icon: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M12 7v5l3 2' },
-    { key: 'growth', label: 'Saving and growth', icon: 'M4 18l5-6 4 3 7-9M15 6h5v5' },
-    { key: 'home_loan', label: 'Home loan', icon: 'M4 11l8-7 8 7v9H4zM10 20v-5h4v5' },
-    { key: 'car_loan', label: 'Car loan', icon: 'M4 16v-4l2-5h12l2 5v4zM4 16v2h3v-2M17 16v2h3v-2' },
+const KINDS: { key: Kind; label: string; icon: PhosphorIcon }[] = [
+    { key: 'retirement', label: 'Retirement', icon: TreePalm },
+    { key: 'growth', label: 'Saving and growth', icon: ChartLineUp },
+    { key: 'home_loan', label: 'Home loan', icon: House },
+    { key: 'car_loan', label: 'Car loan', icon: Car },
 ];
 const LABEL = Object.fromEntries(KINDS.map((k) => [k.key, k.label])) as Record<Kind, string>;
 
@@ -110,10 +112,13 @@ export default function Calculators(p: Props) {
     const [busy, setBusy] = useState(false);
     const [rmode, setRmode] = useState<'percent' | 'amount'>('percent');
     const [sure, setSure] = useState<number | null>(null);
+    // Opened from a goal's "Open in Retirement calculator": its figures, and the way back.
+    const [fromGoal, setFromGoal] = useState<{ id: number; name: string } | null>(null);
 
     const set = <K extends Kind>(k: K, patch: Partial<All[K]>) => setAll((a) => ({ ...a, [k]: { ...a[k], ...patch } }));
 
     function load(c: Saved) {
+        setFromGoal(null);
         setKind(c.kind);
         setAll((a) => ({ ...a, [c.kind]: withDefaults(DEFAULTS[c.kind] as never, c.inputs) }));
         setOpenId(c.id);
@@ -129,8 +134,9 @@ export default function Calculators(p: Props) {
             const raw = sessionStorage.getItem('pocfin-calc-prefill');
             sessionStorage.removeItem('pocfin-calc-prefill');
             if (raw) {
-                const pre = JSON.parse(raw) as { kind: Kind; inputs: Partial<RetirementInputs> };
+                const pre = JSON.parse(raw) as { kind: Kind; inputs: Partial<RetirementInputs>; goal?: { id: number; name: string } };
                 setKind(pre.kind);
+                if (pre.goal) setFromGoal(pre.goal);
                 setAll((a) => ({ ...a, retirement: { ...a.retirement, ...pre.inputs } }));
                 setRmode(pre.inputs.raise_mode === 'amount' ? 'amount' : 'percent');
                 return;
@@ -149,6 +155,7 @@ export default function Calculators(p: Props) {
 
     function pick(k: Kind) {
         if (k === kind) return;
+        setFromGoal(null);
         setKind(k);
         setOpenId(null);
         setNaming(false);
@@ -355,7 +362,14 @@ export default function Calculators(p: Props) {
                         ['howlong', 'How long'],
                     ]}
                 />
-                <NumField label="Starting with" unit="R" value={i.saved} onChange={(n) => up({ saved: n })} max={2000000} step={1000} />
+                <p className="-mt-2 rounded-xl bg-canvas px-3 py-2 text-[13px] leading-snug text-slate">
+                    {i.mode === 'grow'
+                        ? 'You know what you can put away each month. This works out what it grows to after the years you choose.'
+                        : i.mode === 'monthly'
+                          ? 'You know the amount you want and when. This works out what to put away each month to get there.'
+                          : 'You know the amount you want and what you can put away each month. This works out how long it takes.'}
+                </p>
+                <NumField label="Starting with" unit="R" value={i.saved} onChange={(n) => up({ saved: n })} max={2000000} step={1000} hint="What you’ve already saved towards this. Leave it at 0 to start from nothing." />
                 {i.mode !== 'monthly' ? <NumField label="Each month" unit="R" value={i.monthly} onChange={(n) => up({ monthly: n })} max={50000} step={100} /> : null}
                 {i.mode !== 'howlong' ? <NumField label="For" unit="years" value={i.years} onChange={(n) => up({ years: n })} min={1} max={50} narrow /> : null}
                 {i.mode !== 'grow' ? <NumField label="Aiming for" unit="R" value={i.target} onChange={(n) => up({ target: n })} max={10000000} step={10000} /> : null}
@@ -371,9 +385,14 @@ export default function Calculators(p: Props) {
                                 ['today', 'What it buys today'],
                             ]}
                         />
+                        <span className="text-[12.5px] leading-snug text-slate">
+                            {i.target_basis === 'then'
+                                ? 'Exactly this number on the day you get there. Prices will have risen by then, so it will buy less than it does today.'
+                                : 'A number that buys then what this buys today. We aim higher to keep up with rising prices (inflation, below).'}
+                        </span>
                     </div>
                 ) : null}
-                <NumField label="Growth a year" unit="%" value={i.growth} onChange={(n) => up({ growth: n })} max={20} step={0.5} narrow />
+                <NumField label="Growth a year" unit="%" value={i.growth} onChange={(n) => up({ growth: n })} max={20} step={0.5} narrow hint="Your guess for a year’s growth, before inflation. It is added every month. Use what your provider shows, or try a few to compare." />
             </>
         );
         assumptions = (
@@ -512,16 +531,17 @@ export default function Calculators(p: Props) {
             <Head title="Calculators" />
             <div className="flex flex-col gap-5">
                 <div>
-                    <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Calculators</h1>
+                    <div className="flex items-center gap-2.5">
+                        <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Calculators</h1>
+                        <HelpButton topic="calculators" />
+                    </div>
                     <p className="mt-0.5 text-[15px] text-slate">Estimates that update as you change things. Nothing here is booked.</p>
                 </div>
 
                 <div role="tablist" aria-label="Calculator" className="flex flex-wrap gap-1 rounded-2xl bg-segment p-1 sm:self-start">
                     {KINDS.map((k) => (
                         <button key={k.key} type="button" role="tab" aria-selected={kind === k.key} onClick={() => pick(k.key)} className={`flex h-10 items-center gap-2 rounded-xl px-4 text-[14.5px] font-extrabold transition-colors ${kind === k.key ? 'bg-card text-teal shadow-sm' : 'text-slate hover:text-ink'}`}>
-                            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                <path d={k.icon} />
-                            </svg>
+                            <k.icon size={18} aria-hidden="true" />
                             {k.label}
                         </button>
                     ))}
@@ -537,7 +557,10 @@ export default function Calculators(p: Props) {
                 <div className="grid items-start gap-5 lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
                     <div className="flex flex-col gap-5">
                         <Card className="flex flex-col gap-4">
-                            <h2 className="text-[19px] font-extrabold">{LABEL[kind]}</h2>
+                            <div className="flex items-center gap-2.5">
+                                <h2 className="text-[19px] font-extrabold">{LABEL[kind]}</h2>
+                                <HelpButton key={kind} topic={kind === 'retirement' ? 'calc-retirement' : kind === 'growth' ? 'calc-growth' : kind === 'home_loan' ? 'calc-home-loan' : 'calc-car-loan'} />
+                            </div>
                             {inputs}
                             {assumptions ? (
                                 <details className="group rounded-2xl bg-canvas p-4 open:pb-5">
@@ -559,6 +582,17 @@ export default function Calculators(p: Props) {
                     </div>
 
                     <div className="flex min-w-0 flex-col gap-5">
+                        {fromGoal && kind === 'retirement' ? (
+                            <div className="flex flex-wrap items-center gap-3 rounded-[20px] bg-navy-tint px-5 py-3.5 text-navy-text">
+                                <Icon name="goals" size={20} />
+                                <p className="min-w-0 flex-1 text-[14px]">
+                                    <b className="font-extrabold">These are your goal “{fromGoal.name}”’s figures.</b> Change them to try ideas: the goal stays as it is. To change the goal itself, edit it on Goals.
+                                </p>
+                                <button type="button" onClick={() => router.visit(`/goals?goal=${fromGoal.id}`)} className="h-10 flex-none rounded-xl bg-card px-3.5 text-[14px] font-extrabold text-ink hover:bg-segment">
+                                    Back to the goal
+                                </button>
+                            </div>
+                        ) : null}
                         <Card className="flex flex-col gap-5">
                             <AnimatePresence mode="wait" initial={false}>
                                 <motion.div key={kind} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="flex flex-col gap-5">
@@ -599,10 +633,15 @@ export default function Calculators(p: Props) {
                                         </>
                                     ) : (
                                         <button type="button" onClick={() => setNaming(true)} className="h-11 rounded-[14px] bg-mint px-4 text-[15px] font-extrabold text-on-mint transition-transform active:scale-[0.97]">
-                                            Save
+                                            {fromGoal && kind === 'retirement' ? 'Save these figures as a calculation' : 'Save'}
                                         </button>
                                     )}
-                                    {canGoal ? (
+                                    {fromGoal && kind === 'retirement' ? (
+                                        <button type="button" onClick={() => router.visit(`/goals?goal=${fromGoal.id}`)} className="flex h-11 items-center gap-2 rounded-[14px] bg-segment px-4 text-[15px] font-extrabold transition-transform active:scale-[0.97]">
+                                            <Icon name="goals" size={16} />
+                                            Back to the goal
+                                        </button>
+                                    ) : canGoal ? (
                                         <button type="button" onClick={goal} className="flex h-11 items-center gap-2 rounded-[14px] bg-segment px-4 text-[15px] font-extrabold transition-transform active:scale-[0.97]">
                                             <Icon name="goals" size={16} />
                                             Make this a goal
@@ -615,7 +654,8 @@ export default function Calculators(p: Props) {
 
                         {saved.length ? (
                             <Card>
-                                <h2 className="text-[17px] font-extrabold">Saved in {budgetName}</h2>
+                                <h2 className="text-[17px] font-extrabold">Saved calculations in {budgetName}</h2>
+                                <p className="mt-0.5 text-[13px] text-slate">Figures you saved to come back to. They aren’t goals: a goal lives on Goals and checks in each month.</p>
                                 <ul className="mt-2 flex flex-col">
                                     {[...mine, ...saved.filter((s) => s.kind !== kind)].map((s) => (
                                         <li key={s.id} className="flex items-center gap-2 border-t border-rule first:border-t-0">

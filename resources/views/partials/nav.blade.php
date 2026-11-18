@@ -20,7 +20,7 @@
     ];
 @endphp
 <nav aria-label="Main" class="flex flex-col gap-[18px] px-3.5 py-6">
-    <a href="{{ route('overview') }}" class="flex items-center gap-2.5 px-2"><x-logo/><span class="text-xl font-extrabold tracking-[-0.02em]">PocFin</span></a>
+    <a href="{{ route('overview') }}" class="flex items-center gap-2.5 px-2"><x-logo/><span class="text-xl font-extrabold tracking-[-0.02em]">PocFin</span><x-beta/></a>
 
     @if ($budget)
         <div x-data="toggle" class="relative" @keydown.escape="shut">

@@ -129,6 +129,15 @@ export default function Help(p: Props) {
     const [guide, setGuide] = useState<Guide | null>(null);
     const [seen, setSeen] = useState<string[]>([]);
     useEffect(() => setSeen(readSeen()), []);
+    // A page's "?" links to its guide here (/help?guide=budget): open it straight away.
+    useEffect(() => {
+        const key = new URLSearchParams(window.location.search).get('guide');
+        const g = key ? GUIDES.find((x) => x.key === key) : undefined;
+        if (g) {
+            setTab('guides');
+            setGuide(g);
+        }
+    }, []);
 
     const [kind, setKind] = useState<Kind>('question');
     const [msg, setMsg] = useState('');

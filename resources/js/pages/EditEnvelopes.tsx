@@ -1,4 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import HelpButton from '@/components/HelpButton';
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent, type ReactNode } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import Icon from '@/components/Icon';
@@ -31,7 +32,7 @@ let tempSeq = 0;
 
 /**
  * W9 Edit envelopes: "Does my plan fit my income?" Monthly income, budgeted each month and the
- * difference first; then sort, plans, and one table of names, kinds and monthly amounts (drag ⠿ or
+ * difference first; then sort, plans, and one table of names and monthly amounts (drag ⠿ or
  * ↑ ↓ to reorder). One Save sends it all, and the API saves all of it or none.
  */
 export default function EditEnvelopes(p: Props) {
@@ -62,7 +63,6 @@ export default function EditEnvelopes(p: Props) {
         if (!b) return null;
         const out: Record<string, string> = {};
         if (r.name.trim() !== b.name) out.name = r.name.trim();
-        if (r.kind !== b.kind) out.kind = r.kind;
         if (cents(r.amount) !== toCents(b.amount)) out.budgeted_amount = toAmount(r.amount);
         return Object.keys(out).length ? out : null;
     };
@@ -146,7 +146,7 @@ export default function EditEnvelopes(p: Props) {
         const createKeys = created.map((r) => r.key);
         const updateKeys = updated.map((r) => r.key);
         const body: Record<string, unknown> = {};
-        if (created.length) body.create = created.map((r) => ({ name: r.name.trim(), budgeted_amount: toAmount(r.amount), kind: r.kind }));
+        if (created.length) body.create = created.map((r) => ({ name: r.name.trim(), budgeted_amount: toAmount(r.amount) }));
         if (updated.length) body.update = updated.map((r) => ({ id: r.id, ...changedOf(r) }));
         if (orderChanged || created.length) body.order = live.map((r) => (r.id !== null ? String(r.id) : `new:${createKeys.indexOf(r.key)}`));
         if (incomeChanged) body.monthly_income = income.trim() ? toAmount(income) : null;
@@ -198,7 +198,10 @@ export default function EditEnvelopes(p: Props) {
                     <span className="text-ink">Edit envelopes</span>
                 </nav>
                 <div>
-                    <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Edit envelopes</h1>
+                    <div className="flex items-center gap-2.5">
+                        <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Edit envelopes</h1>
+                        <HelpButton topic="edit-envelopes" />
+                    </div>
                     <p className="mt-0.5 text-[15px] text-slate">Set the order, names and monthly amounts in one place.</p>
                 </div>
 
@@ -217,7 +220,7 @@ export default function EditEnvelopes(p: Props) {
                         {!p.can_change_income ? <span className="font-semibold">Only the budget’s owner changes this.</span> : null}
                     </label>
                     <div className="flex flex-col gap-1 sm:px-2">
-                        <span className="text-[13px] font-bold text-slate">Budgeted each month</span>
+                        <span className="text-[13px] font-bold text-slate" title="All the envelopes’ monthly amounts added together">Monthly envelope budget total</span>
                         <span className="flex h-11 items-center text-[22px] font-extrabold">
                             <Money amount={budgeted} />
                         </span>
@@ -238,7 +241,7 @@ export default function EditEnvelopes(p: Props) {
                     {loaded ? (
                         <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-3 rounded-[18px] bg-tint px-4 py-3 text-[14px] text-tint-sub">
                             <span className="flex-1">
-                                Loaded the plan <b className="text-ink">“{loaded.name}”</b>. Envelopes it doesn’t know start at R0.00.
+                                Loaded the plan <b className="text-ink">“{loaded.name}”</b>. Envelopes made after this plan was saved aren’t in it, so their monthly amount is set to R0.00. Nothing is saved until you click Save changes.
                             </span>
                             <button type="button" onClick={() => { change(loaded.before); setLoaded(null); }} className="font-extrabold text-teal hover:underline">
                                 Undo
@@ -269,12 +272,9 @@ export default function EditEnvelopes(p: Props) {
                 </div>
 
                 <div role="table" aria-label="Envelopes" className="@container overflow-hidden rounded-[24px] bg-card">
-                    <div role="row" className="grid grid-cols-[minmax(0,1fr)_120px_32px] items-center gap-3 border-b border-line px-4 py-3 text-[12.5px] font-bold text-slate @lg:grid-cols-[22px_minmax(0,1fr)_150px_150px_32px]">
+                    <div role="row" className="grid grid-cols-[minmax(0,1fr)_120px_32px] items-center gap-3 border-b border-line px-4 py-3 text-[12.5px] font-bold text-slate @lg:grid-cols-[22px_minmax(0,1fr)_170px_32px]">
                         <span className="hidden @lg:block" />
                         <span role="columnheader">Name</span>
-                        <span role="columnheader" className="hidden @lg:block">
-                            Kind
-                        </span>
                         <span role="columnheader">Monthly amount</span>
                         <span />
                     </div>
@@ -304,7 +304,7 @@ export default function EditEnvelopes(p: Props) {
                                     className={`group border-b border-line last:border-b-0 ${r.id === null ? 'bg-tint-soft' : ''} ${drag.key === r.key ? 'opacity-50' : ''}`}
                                     style={{ boxShadow: isOver ? 'inset 0 2px 0 var(--mint)' : undefined }}
                                 >
-                                    <div className="grid grid-cols-[minmax(0,1fr)_120px_32px] items-start gap-3 px-4 py-2.5 @lg:grid-cols-[22px_minmax(0,1fr)_150px_150px_32px]">
+                                    <div className="grid grid-cols-[minmax(0,1fr)_120px_32px] items-start gap-3 px-4 py-2.5 @lg:grid-cols-[22px_minmax(0,1fr)_170px_32px]">
                                         <button
                                             type="button"
                                             draggable
@@ -333,17 +333,8 @@ export default function EditEnvelopes(p: Props) {
                                                 aria-label="Name"
                                                 className={field}
                                             />
-                                            <select value={r.kind} onChange={(e) => edit(r.key, { kind: e.target.value as Kind })} aria-label={`Kind of ${r.name}`} className={`${field} @lg:hidden`}>
-                                                <option value="everyday">Everyday</option>
-                                                <option value="saving_up">Saving up</option>
-                                            </select>
                                             {err('name') ? <span className="text-[12.5px] font-bold text-red-ink">{err('name')}</span> : null}
-                                            {err('kind') ? <span className="text-[12.5px] font-bold text-red-ink">{err('kind')}</span> : null}
                                         </div>
-                                        <select value={r.kind} onChange={(e) => edit(r.key, { kind: e.target.value as Kind })} aria-label={`Kind of ${r.name}`} className={`${field} hidden @lg:block`}>
-                                            <option value="everyday">Everyday</option>
-                                            <option value="saving_up">Saving up</option>
-                                        </select>
                                         <div className="flex flex-col gap-1">
                                             <span className="relative">
                                                 <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">R</span>

@@ -1,4 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
+import HelpButton from '@/components/HelpButton';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import Shell from '@/components/Shell';
 import { useApp } from '@/lib/app';
@@ -79,7 +80,10 @@ export default function BudgetSettings({ budget }: { budget: Budget }) {
             <Head title="Budget settings" />
             <div className="flex max-w-[640px] flex-col gap-5">
                 <div>
-                    <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Budget settings</h1>
+                    <div className="flex items-center gap-2.5">
+                        <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Budget settings</h1>
+                        <HelpButton topic="budget-settings" />
+                    </div>
                     <p className="mt-0.5 text-[15px] text-slate">
                         {saved.name} · you’re {owner ? 'the owner' : 'a member'}
                     </p>

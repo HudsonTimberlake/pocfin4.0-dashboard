@@ -1,3 +1,4 @@
+import { router } from '@inertiajs/react';
 /**
  * Small JSON calls to the dashboard's own server (never the API), for writes that shouldn't
  * reload the page. A 422 comes back as { field: message }; anything else as { form: … }.
@@ -21,6 +22,8 @@ export async function send<T = unknown>(csrf: string, method: string, url: strin
         },
         body: body ? (form ? body : JSON.stringify(body)) : undefined,
     });
+    // A change made here (outside Inertia) makes prefetched pages out of date too.
+    if (method.toUpperCase() !== 'GET') router.flushAll();
     if (r.status === 204) return undefined as T;
     const json = await r.json().catch(() => ({}));
     if (r.ok) return json as T;

@@ -1,4 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
+import HelpButton from '@/components/HelpButton';
 import { useState, type ReactNode } from 'react';
 import Icon from '@/components/Icon';
 import Shell from '@/components/Shell';
@@ -39,7 +40,10 @@ export default function Invite({ referrals: r, budgets }: Props) {
             <Head title="Invite friends" />
             <div className="flex max-w-[1040px] flex-col gap-5">
                 <div>
-                    <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Invite friends</h1>
+                    <div className="flex items-center gap-2.5">
+                        <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Invite friends</h1>
+                        <HelpButton topic="invite" />
+                    </div>
                     <p className="mt-0.5 text-[15px] text-slate">You both get a free month of Premium</p>
                 </div>
 

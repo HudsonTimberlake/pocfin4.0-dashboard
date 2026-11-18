@@ -1,15 +1,17 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import HelpButton from '@/components/HelpButton';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { HoldingMoney, HoldingPanel, pct, signed, type Holding, type Purpose, type Returns, type Valuation } from '@/components/HoldingParts';
 import Icon from '@/components/Icon';
 import Money from '@/components/Money';
 import Shell from '@/components/Shell';
+import SidePanel from '@/components/SidePanel';
 import { cleanTyped, toAmount, ymd } from '@/lib/amount';
 import { useApp } from '@/lib/app';
 import { dayLabel, formatMoney, isNegative, monthName, toCents } from '@/lib/format';
 import { ARRIVE } from '@/lib/motion';
-import { formatRate, formatUsd, randToUsd, usdToRand } from '@/shared/money';
+import { formatRate, formatUsd, fromCents, randToUsd, usdToRand } from '@/shared/money';
 
 type Account = { id: number; name: string; visibility: string; currency?: string; usd_rate?: string | null; rate_updated_at?: string | null; balance: string; value: string | null; gain: string | null; simple_return?: string | null };
 type Props = {
@@ -37,6 +39,7 @@ export default function Investment(p: Props) {
     const [money, setMoney] = useState<'add' | 'expense' | null>(null);
     const [updating, setUpdating] = useState(false);
     const [drafts, setDrafts] = useState<Record<number, string>>({});
+    const [valueDay, setValueDay] = useState(ymd());
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [busy, setBusy] = useState(false);
     const [adding, setAdding] = useState(false);
@@ -68,6 +71,7 @@ export default function Investment(p: Props) {
         setOpenId(null);
         setErrors({});
         setDrafts(Object.fromEntries(p.holdings.map((h) => [h.id, (ccy.usd ? randToUsd(h.value, ccy.rate) : h.value).replace(/\.00$/, '')])));
+        setValueDay(ymd());
         setUpdating(true);
     }
     const changedValues = p.holdings.filter((h) => drafts[h.id] !== undefined && (ccy.usd ? usdToRand(toAmount(drafts[h.id]), ccy.rate) : toAmount(drafts[h.id])) !== h.value);
@@ -77,11 +81,11 @@ export default function Investment(p: Props) {
         if (!changedValues.length || busy) return;
         const lines = changedValues.map((h) => ({ holding_id: h.id, value: ccy.usd ? usdToRand(toAmount(drafts[h.id]), ccy.rate) : toAmount(drafts[h.id]) }));
         setBusy(true);
-        router.post(`/investments/${a.id}/values`, { date: ymd(), values: lines }, {
+        router.post(`/investments/${a.id}/values`, { date: valueDay, values: lines }, {
             preserveScroll: true,
             preserveState: true,
             onSuccess: () => {
-                toast({ text: `✓ ${lines.length} ${lines.length === 1 ? 'value' : 'values'} saved, dated today` });
+                toast({ text: `✓ ${lines.length} ${lines.length === 1 ? 'value' : 'values'} saved, dated ${valueDay === ymd() ? 'today' : dayLabel(valueDay)}` });
                 setUpdating(false);
                 setErrors({});
             },
@@ -152,35 +156,29 @@ export default function Investment(p: Props) {
                 </nav>
                 <div className="flex flex-wrap items-end gap-3">
                     <div className="min-w-0 flex-1">
-                        <h1 className="truncate text-[28px] leading-tight font-extrabold tracking-[-0.02em]">{a.name}</h1>
+                        <div className="flex items-center gap-2.5">
+                            <h1 className="min-w-0 truncate text-[28px] leading-tight font-extrabold tracking-[-0.02em]">{a.name}</h1>
+                            <HelpButton topic="investmentAccount" />
+                        </div>
                         <p className="mt-0.5 text-[15px] text-slate">
                             {ccy.usd ? 'Investment in US dollars' : 'Investment'} · {a.visibility === 'private' ? 'only me' : 'shared'} · {p.holdings.length} {p.holdings.length === 1 ? 'holding' : 'holdings'}
                             {lastValued ? ` · last valued ${dayLabel(lastValued)}` : ''}
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={() => setMoney(money === 'add' ? null : 'add')} aria-expanded={money === 'add'} className="flex h-11 items-center gap-2 rounded-[14px] bg-mint px-4 text-[15px] font-extrabold text-on-mint transition-transform active:scale-[0.97]">
+                        <button type="button" onClick={() => setMoney('add')} aria-haspopup="dialog" className="flex h-11 items-center gap-2 rounded-[14px] bg-mint px-4 text-[15px] font-extrabold text-on-mint transition-transform active:scale-[0.97]">
                             <Icon name="plus" size={16} stroke={2.4} />
                             Add money
                         </button>
-                        <button type="button" onClick={() => setMoney(money === 'expense' ? null : 'expense')} aria-expanded={money === 'expense'} className="h-11 rounded-[14px] bg-card px-4 text-[15px] font-extrabold hover:bg-segment">
+                        <button type="button" onClick={() => setMoney('expense')} aria-haspopup="dialog" className="h-11 rounded-[14px] bg-card px-4 text-[15px] font-extrabold hover:bg-segment">
                             Withdraw
                         </button>
-                        <button type="button" onClick={startUpdate} disabled={!p.holdings.length || updating} className="h-11 rounded-[14px] bg-card px-4 text-[15px] font-extrabold hover:bg-segment disabled:opacity-50">
+                        <button type="button" onClick={startUpdate} aria-haspopup="dialog" disabled={!p.holdings.length} className="h-11 rounded-[14px] bg-card px-4 text-[15px] font-extrabold hover:bg-segment disabled:opacity-50">
                             Update values
                         </button>
                     </div>
                 </div>
 
-                <AnimatePresence initial={false}>
-                    {money ? (
-                        <motion.div key={money} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2, ease: ARRIVE }} className="overflow-hidden">
-                            <div className="max-w-[560px]">
-                                <HoldingMoney accountId={a.id} kind={money} holdings={p.holdings} purposes={p.purposes} ccy={ccy} onDone={() => setMoney(null)} />
-                            </div>
-                        </motion.div>
-                    ) : null}
-                </AnimatePresence>
 
                 {ccy.usd ? (
                     <form onSubmit={saveRate} className="flex flex-wrap items-center gap-3 rounded-[18px] bg-navy-tint px-5 py-3 text-[14.5px] text-navy-text">
@@ -247,12 +245,7 @@ export default function Investment(p: Props) {
                                     ))}
                                 </div>
                             </div>
-                            {updating ? (
-                                <p className="mx-5 mb-3 rounded-xl bg-tint px-3.5 py-2.5 text-[13.5px] font-bold text-tint-sub">
-                                    Type what each holding is worth today{ccy.usd ? ', in dollars as the platform shows it' : ''}. Purposes move with it. Nothing changes until you save.
-                                </p>
-                            ) : null}
-                            <form onSubmit={saveValues}>
+                            <div>
                                 <div role="row" className={`grid ${cols} items-center gap-3 border-y border-line px-5 py-2.5 text-[12.5px] font-bold text-slate`}>
                                     <span>Holding</span>
                                     <span className="text-right">Worth</span>
@@ -269,30 +262,18 @@ export default function Investment(p: Props) {
                                         <div
                                             key={h.id}
                                             role="row"
-                                            onClick={() => !updating && setOpenId(sel ? null : h.id)}
-                                            className={`grid ${cols} items-center gap-3 border-b border-line px-5 py-3 transition-colors ${updating ? '' : 'cursor-pointer'} ${sel ? 'bg-navy-tint' : updating ? '' : 'hover:bg-canvas'}`}
+                                            onClick={() => setOpenId(sel ? null : h.id)}
+                                            className={`grid ${cols} items-center gap-3 border-b border-line px-5 py-3 transition-colors cursor-pointer ${sel ? 'bg-navy-tint' : 'hover:bg-canvas'}`}
                                         >
                                             <span className="min-w-0">
-                                                <button type="button" disabled={updating} onClick={(e) => { e.stopPropagation(); setOpenId(sel ? null : h.id); }} aria-expanded={sel} className="block max-w-full truncate text-left text-[15px] font-bold">
+                                                <button type="button" onClick={(e) => { e.stopPropagation(); setOpenId(sel ? null : h.id); }} aria-expanded={sel} className="block max-w-full truncate text-left text-[15px] font-bold">
                                                     {h.name}
                                                 </button>
                                                 <span className="block truncate text-[12.5px] text-slate">{h.positions.map((x) => x.purpose).join(', ') || 'Nothing in it yet'}</span>
                                             </span>
-                                            <span className="text-right" onClick={(e) => updating && e.stopPropagation()}>
-                                                {updating ? (
-                                                    <span className="flex flex-col items-end gap-1">
-                                                        <span className="relative w-full">
-                                                            <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-[14px] font-bold text-slate">{ccy.usd ? '$' : 'R'}</span>
-                                                            <input value={drafts[h.id] ?? ''} onChange={(e) => setDrafts((d) => ({ ...d, [h.id]: cleanTyped(e.target.value) }))} inputMode="decimal" aria-label={`What ${h.name} is worth`} className="num h-9 w-full rounded-lg border border-line bg-card pr-2 pl-6 text-right text-[14.5px] font-bold outline-none focus:border-mint" />
-                                                        </span>
-                                                        {errors[String(h.id)] ? <span className="text-[12px] font-bold text-red-ink">{errors[String(h.id)]}</span> : null}
-                                                    </span>
-                                                ) : (
-                                                    <>
-                                                        <span className="num block text-[15px] font-extrabold">{formatMoney(h.value)}</span>
-                                                        {ccy.usd && h.value_usd ? <span className="num block text-[12.5px] text-slate">{formatUsd(h.value_usd)}</span> : null}
-                                                    </>
-                                                )}
+                                            <span className="text-right">
+                                                <span className="num block text-[15px] font-extrabold">{formatMoney(h.value)}</span>
+                                                {ccy.usd && h.value_usd ? <span className="num block text-[12.5px] text-slate">{formatUsd(h.value_usd)}</span> : null}
                                             </span>
                                             <span className={`num text-right text-[14.5px] ${extra}`}>{r ? formatMoney(r.net_contributed) : '—'}</span>
                                             <span className={`num text-right text-[14.5px] font-bold ${r && isNegative(r.gain) ? 'text-red' : 'text-teal'}`}>{r ? signed(r.gain) : '—'}</span>
@@ -311,19 +292,7 @@ export default function Investment(p: Props) {
                                         <span className={twrCol} />
                                     </div>
                                 ) : null}
-                                {updating ? (
-                                    <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
-                                        {errors.date || errors.form ? <span className="mr-auto text-[13px] font-bold text-red-ink">{errors.date || errors.form}</span> : null}
-                                        <button type="button" onClick={() => { setUpdating(false); setErrors({}); }} className="h-10 px-3 text-[14.5px] font-bold text-teal">
-                                            Cancel
-                                        </button>
-                                        <button type="submit" disabled={!changedValues.length || busy} className="h-10 rounded-xl bg-mint px-4 text-[14.5px] font-extrabold text-on-mint disabled:opacity-60">
-                                            {busy ? 'Saving…' : `Save ${changedValues.length} ${changedValues.length === 1 ? 'value' : 'values'}`}
-                                        </button>
-                                    </div>
-                                ) : null}
-                            </form>
-                            {!updating ? (
+                            </div>
                                 <div className="flex flex-wrap items-center gap-3 px-5 py-3">
                                     {adding ? (
                                         <form onSubmit={addHolding} onKeyDown={(e) => e.key === 'Escape' && setAdding(false)} className="flex flex-1 flex-wrap items-center gap-2">
@@ -344,7 +313,6 @@ export default function Investment(p: Props) {
                                     )}
                                     <span className="text-[12.5px] text-slate">Simple return is gain over what you put in. Time-weighted follows the price only, so when you added money doesn’t change it.</span>
                                 </div>
-                            ) : null}
                         </section>
                     </div>
 
@@ -368,6 +336,70 @@ export default function Investment(p: Props) {
                     </AnimatePresence>
                 </div>
             </div>
+
+            <SidePanel open={money !== null} title={money === 'expense' ? 'Withdraw' : 'Add money'} sub={a.name} onClose={() => setMoney(null)}>
+                {money ? <HoldingMoney key={money} plain accountId={a.id} kind={money} holdings={p.holdings} purposes={p.purposes} ccy={ccy} onDone={() => setMoney(null)} /> : null}
+            </SidePanel>
+
+            <SidePanel
+                open={updating}
+                title="Update values"
+                sub={a.name}
+                onClose={() => { setUpdating(false); setErrors({}); }}
+                footer={
+                    <form onSubmit={saveValues} className="flex flex-col gap-2">
+                        {errors.date || errors.form ? <span className="text-[13px] font-bold text-red-ink">{errors.date || errors.form}</span> : null}
+                        <div className="flex gap-2">
+                            <button type="submit" disabled={!changedValues.length || busy} className="h-11 flex-1 rounded-xl bg-mint px-4 text-[15px] font-extrabold text-on-mint transition-transform active:scale-[0.98] disabled:opacity-50">
+                                {busy ? 'Saving…' : changedValues.length ? `Save ${changedValues.length} ${changedValues.length === 1 ? 'value' : 'values'}` : 'Change a value to save'}
+                            </button>
+                            <button type="button" onClick={() => { setUpdating(false); setErrors({}); }} className="h-11 rounded-xl bg-canvas px-4 text-[15px] font-bold hover:bg-segment">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                }
+            >
+                <ol className="flex flex-col gap-2 rounded-2xl bg-canvas p-4 text-[13.5px] text-slate">
+                    <li><b className="text-ink">1.</b> Open your provider’s app or statement.</li>
+                    <li><b className="text-ink">2.</b> Type what each holding is worth{ccy.usd ? ', in dollars as the platform shows it' : ''}. Leave the ones that haven’t changed.</li>
+                    <li><b className="text-ink">3.</b> Save. No money moves: only the value changes, and gain or loss follows.</li>
+                </ol>
+                <label className="flex flex-col gap-1 text-[13px] font-bold text-slate">
+                    Valued on
+                    <input type="date" value={valueDay} max={ymd()} onChange={(e) => e.target.value && setValueDay(e.target.value)} className="h-11 rounded-xl border border-line bg-card px-3 text-[15px] font-bold text-ink outline-none focus:border-mint" />
+                </label>
+                <div className="flex flex-col divide-y divide-line">
+                    {p.holdings.map((h) => {
+                        const now = ccy.usd ? randToUsd(h.value, ccy.rate) : h.value;
+                        const typed = drafts[h.id] ?? '';
+                        const next = typed === '' ? null : ccy.usd ? usdToRand(toAmount(typed), ccy.rate) : toAmount(typed);
+                        const diff = next === null ? 0n : toCents(next) - toCents(h.value);
+                        return (
+                            <div key={h.id} className="flex flex-col gap-1.5 py-3">
+                                <div className="flex items-baseline justify-between gap-3">
+                                    <span className="truncate text-[15px] font-extrabold">{h.name}</span>
+                                    <span className="num flex-none text-[12.5px] text-slate">
+                                        Now {ccy.usd ? formatUsd(now) : formatMoney(now)}
+                                        {h.last_valuation?.date ? ` · ${dayLabel(h.last_valuation.date)}` : ''}
+                                    </span>
+                                </div>
+                                <span className="relative">
+                                    <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">{ccy.usd ? '$' : 'R'}</span>
+                                    <input value={typed} onChange={(e) => setDrafts((d) => ({ ...d, [h.id]: cleanTyped(e.target.value) }))} onFocus={(e) => e.target.select()} inputMode="decimal" aria-label={`What ${h.name} is worth`} className="num h-11 w-full rounded-xl border border-line bg-card pr-3 pl-7 text-right text-[16px] font-extrabold outline-none focus:border-mint" />
+                                </span>
+                                {diff !== 0n ? (
+                                    <span className={`num text-right text-[12.5px] font-bold ${diff < 0n ? 'text-red' : 'text-teal'}`}>
+                                        {diff > 0n ? '+' : '−'}
+                                        {formatMoney(fromCents(diff < 0n ? -diff : diff))} {diff > 0n ? 'gain' : 'loss'} since its last value
+                                    </span>
+                                ) : null}
+                                {errors[String(h.id)] ? <span className="text-[12.5px] font-bold text-red-ink">{errors[String(h.id)]}</span> : null}
+                            </div>
+                        );
+                    })}
+                </div>
+            </SidePanel>
         </>
     );
 }

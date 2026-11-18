@@ -1,4 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import HelpButton from '@/components/HelpButton';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AccountPanel, { goalChip, kindLabel, type Account, type Goal, type Move } from '@/components/AccountPanel';
@@ -41,7 +42,8 @@ export default function Accounts(p: Props) {
     const parts = [
         { label: 'Investments', amount: p.totals.investments, tone: 'bg-mint' },
         { label: 'Savings', amount: p.totals.savings, tone: 'bg-white' },
-        { label: 'Holding', amount: p.totals.holding, tone: 'bg-navy-line' },
+        // Holding is a warm sun yellow: navy (the card) and white (savings) can't tell it apart.
+        { label: 'Holding', amount: p.totals.holding, tone: 'bg-[#F5BE4F]' },
     ].filter((x) => toCents(x.amount) > 0n);
     const goalOf = (id: number) => p.goals.find((g) => g.account_id === id);
     const open = typeof panel === 'number' ? p.accounts.find((a) => a.id === panel) : undefined;
@@ -68,7 +70,10 @@ export default function Accounts(p: Props) {
             <div className="flex flex-col gap-5">
                 <div className="flex flex-wrap items-end gap-3">
                     <div className="min-w-0 flex-1">
-                        <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Accounts</h1>
+                        <div className="flex items-center gap-2.5">
+                            <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Accounts</h1>
+                            <HelpButton topic="accounts" />
+                        </div>
                         <p className="mt-0.5 text-[15px] text-slate">Money kept outside your envelopes</p>
                     </div>
                     <button type="button" onClick={() => setPanel('new')} className="flex h-11 items-center gap-2 rounded-[14px] bg-card px-4 text-[15px] font-extrabold transition-transform hover:bg-segment active:scale-[0.97]">

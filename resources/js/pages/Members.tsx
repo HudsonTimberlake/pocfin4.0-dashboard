@@ -1,4 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
+import HelpButton from '@/components/HelpButton';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import Shell from '@/components/Shell';
 import { useApp } from '@/lib/app';
@@ -103,7 +104,10 @@ export default function Members(p: Props) {
             <Head title="Members" />
             <div className="flex max-w-[760px] flex-col gap-5">
                 <div>
-                    <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Members</h1>
+                    <div className="flex items-center gap-2.5">
+                        <h1 className="text-[28px] leading-tight font-extrabold tracking-[-0.02em]">Members</h1>
+                        <HelpButton topic="members" />
+                    </div>
                     <p className="mt-0.5 text-[15px] text-slate">Who shares {name}. Everyone sees the shared envelopes and accounts.</p>
                 </div>
 

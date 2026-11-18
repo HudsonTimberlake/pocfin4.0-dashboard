@@ -1,33 +1,30 @@
 import { Link, router } from '@inertiajs/react';
 import { motion } from 'motion/react';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import Bar from '@/components/Bar';
 import EnvelopeIcon from '@/components/EnvelopeIcon';
 import Icon, { type IconName } from '@/components/Icon';
 import IconPicker from '@/components/IconPicker';
 import Money from '@/components/Money';
+import RecentRow from '@/components/RecentRow';
 import { cleanTyped, toAmount } from '@/lib/amount';
 import { useApp, type AddTab } from '@/lib/app';
 import { dayLabel, formatMoney, isNegative, percent, toCents } from '@/lib/format';
 import { ENVELOPE_ICONS, iconKeyFor } from '@/shared/envelopeIcons';
-import type { BudgetEnvelope } from '@/types';
+import type { BudgetEnvelope, Envelope } from '@/types';
 
-export type Activity = { key: string; kind: 'spent' | 'refund' | 'allocated'; note: string | null; date: string; amount: string; by: string | null };
+export type Activity = { key: string; id: number; kind: 'spent' | 'refund' | 'allocated'; note: string | null; date: string; amount: string; by: string | null };
 
 const field = 'h-11 w-full rounded-xl border border-line bg-card px-3 text-[15px] font-bold text-ink outline-none focus:border-mint';
 
-const KIND_NOTE = {
-    everyday: 'Everyday: spent through the month. What’s left can be moved where it’s needed.',
-    saving_up: 'Saving up: money builds up month to month for something later. It’s never suggested for moving.',
-};
-
 /**
  * W7, the envelope beside the table: Left first, then Spend / Move / Refund, then name, icon, monthly
- * amount and kind, this month's activity, then Save changes, Archive and Delete (the app's rules:
- * delete only at R0.00, and it can't be undone).
+ * amount, this month's activity (click a spend or refund to change it in place), then Save changes,
+ * Archive and Delete (the app's rules: delete only at R0.00, and it can't be undone).
  */
-export default function EnvelopePanel({ e, activity, loading, shared, canAllocate, onClose, onArchive }: {
+export default function EnvelopePanel({ e, envelopes, activity, loading, shared, canAllocate, onClose, onArchive }: {
     e: BudgetEnvelope;
+    envelopes: Envelope[];
     activity: Activity[];
     loading: boolean;
     shared: boolean;
@@ -39,7 +36,32 @@ export default function EnvelopePanel({ e, activity, loading, shared, canAllocat
     const [name, setName] = useState(e.name);
     const [icon, setIcon] = useState<string | null>(e.icon);
     const [monthly, setMonthly] = useState(toCents(e.budgeted_amount) > 0n ? e.budgeted_amount : '');
-    const [kind, setKind] = useState(e.kind);
+    // The panel's own fields use a form outside the panel, so a row's edit form inside isn't nested in it.
+    const formId = useId();
+    const [editRow, setEditRow] = useState<number | null>(null);
+    const [hidden, setHidden] = useState<number[]>([]);
+    const timers = useRef(new Map<number, number>());
+    useEffect(() => {
+        const t = timers.current;
+        // Leaving the panel sends any delete still waiting for its Undo.
+        return () => t.forEach((handle, id) => {
+            window.clearTimeout(handle);
+            router.delete(`/money/expenses/${id}`, { preserveScroll: true, preserveState: true });
+        });
+    }, []);
+    function removeRow(id: number) {
+        setEditRow(null);
+        setHidden((h) => [...h, id]);
+        timers.current.set(id, window.setTimeout(() => {
+            timers.current.delete(id);
+            router.delete(`/money/expenses/${id}`, { preserveScroll: true, preserveState: true, onError: (er) => toast({ text: Object.values(er)[0] ?? 'That didn’t delete.' }) });
+        }, 6000));
+        toast({ text: 'Deleted', ms: 6000, undo: () => {
+            window.clearTimeout(timers.current.get(id));
+            timers.current.delete(id);
+            setHidden((h) => h.filter((x) => x !== id));
+        } });
+    }
     const [icons, setIcons] = useState(false);
     const [confirm, setConfirm] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -48,14 +70,14 @@ export default function EnvelopePanel({ e, activity, loading, shared, canAllocat
 
     const over = isNegative(e.balance);
     const atZero = toCents(e.balance) === 0n;
-    const dirty = name.trim() !== e.name || icon !== e.icon || toAmount(monthly) !== e.budgeted_amount || kind !== e.kind;
+    const dirty = name.trim() !== e.name || icon !== e.icon || toAmount(monthly) !== e.budgeted_amount;
     const Current = ENVELOPE_ICONS[icon && icon in ENVELOPE_ICONS ? (icon as keyof typeof ENVELOPE_ICONS) : iconKeyFor(name || e.name)].Icon;
 
     function save(ev: FormEvent) {
         ev.preventDefault();
         if (!dirty || busy) return;
         setBusy('save');
-        router.patch(`/envelopes/${e.id}`, { name: name.trim(), icon, budgeted_amount: toAmount(monthly), kind }, {
+        router.patch(`/envelopes/${e.id}`, { name: name.trim(), icon, budgeted_amount: toAmount(monthly) }, {
             preserveScroll: true,
             preserveState: true,
             onSuccess: () => {
@@ -92,7 +114,8 @@ export default function EnvelopePanel({ e, activity, loading, shared, canAllocat
     ];
 
     return (
-        <form onSubmit={save} aria-label={e.name} className="flex flex-col gap-5 rounded-[24px] bg-card p-5">
+        <div role="group" aria-label={e.name} className="flex flex-col gap-5 rounded-[24px] bg-card p-5">
+            <form id={formId} onSubmit={save} className="hidden" />
             <div className="flex items-center gap-3">
                 <EnvelopeIcon name={name || e.name} icon={icon} over={over} size={40} bg="bg-tint" />
                 <h2 className="min-w-0 flex-1 truncate text-[19px] font-extrabold">{e.name}</h2>
@@ -140,7 +163,7 @@ export default function EnvelopePanel({ e, activity, loading, shared, canAllocat
             <div className="flex flex-col gap-3.5 border-t border-line pt-5">
                 <label className="flex flex-col gap-1 text-[13px] font-bold text-slate">
                     Name
-                    <input value={name} onChange={(ev) => setName(ev.target.value)} maxLength={100} className={field} />
+                    <input form={formId} value={name} onChange={(ev) => setName(ev.target.value)} maxLength={100} className={field} />
                     {errors.name ? <span className="text-red-ink">{errors.name}</span> : null}
                 </label>
                 <div className="flex flex-col gap-1.5 text-[13px] font-bold text-slate">
@@ -157,21 +180,10 @@ export default function EnvelopePanel({ e, activity, loading, shared, canAllocat
                     Monthly amount
                     <span className="relative">
                         <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">R</span>
-                        <input value={monthly} onChange={(ev) => setMonthly(cleanTyped(ev.target.value))} inputMode="decimal" placeholder="0.00" className={`${field} num pl-7`} />
+                        <input form={formId} value={monthly} onChange={(ev) => setMonthly(cleanTyped(ev.target.value))} inputMode="decimal" placeholder="0.00" className={`${field} num pl-7`} />
                     </span>
                     {errors.budgeted_amount ? <span className="text-red-ink">{errors.budgeted_amount}</span> : null}
                 </label>
-                <div className="flex flex-col gap-1.5 text-[13px] font-bold text-slate">
-                    Kind
-                    <div role="radiogroup" aria-label="Kind" className="grid grid-cols-2 gap-1 rounded-xl bg-segment p-1">
-                        {(['everyday', 'saving_up'] as const).map((k) => (
-                            <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={`h-9 rounded-[10px] text-[14px] font-extrabold transition-colors ${kind === k ? 'bg-card text-ink' : 'text-slate'}`}>
-                                {k === 'everyday' ? 'Everyday' : 'Saving up'}
-                            </button>
-                        ))}
-                    </div>
-                    <span className="font-semibold">{KIND_NOTE[kind]}</span>
-                </div>
             </div>
 
             <div className="border-t border-line pt-5">
@@ -190,21 +202,41 @@ export default function EnvelopePanel({ e, activity, loading, shared, canAllocat
                 ) : activity.length === 0 ? (
                     <p className="text-[14px] text-slate">Nothing in or out yet.</p>
                 ) : (
-                    <ul className="flex flex-col">
-                        {activity.map((x, i) => {
-                            const into = x.kind !== 'spent';
-                            const sub = [shared && x.by ? x.by : null, x.kind === 'refund' ? 'Refund' : x.kind === 'allocated' ? 'Allocated' : null, dayLabel(x.date)].filter(Boolean).join(' · ');
-                            return (
-                                <li key={x.key} className={`flex items-center gap-3 py-2.5 ${i ? 'border-t border-line' : ''}`}>
-                                    <span className="min-w-0 flex-1">
-                                        <span className="block truncate text-[14.5px] font-bold">{x.kind === 'allocated' ? `From ${x.note || 'income'}` : x.note || (x.kind === 'refund' ? 'Refund' : 'Spent')}</span>
-                                        <span className="block text-[12.5px] text-slate">{sub}</span>
-                                    </span>
-                                    <span className={`num text-[14.5px] font-extrabold ${into ? 'text-teal' : ''}`}>{formatMoney(x.amount, { income: into })}</span>
-                                </li>
-                            );
-                        })}
+                    <>
+                    <ul className="-mx-2 flex flex-col">
+                        {activity
+                            .filter((x) => !(x.kind !== 'allocated' && hidden.includes(x.id)))
+                            .map((x, i) => {
+                                const into = x.kind !== 'spent';
+                                if (x.kind !== 'allocated') {
+                                    return (
+                                        <li key={x.key} className={i ? 'border-t border-line' : ''}>
+                                            <RecentRow
+                                                x={{ id: x.id, envelope_id: e.id, amount: x.amount, refund: x.kind === 'refund', date: x.date, note: x.note, created_by: null }}
+                                                envelopes={envelopes}
+                                                who={shared && x.by ? { name: x.by, tone: 'bg-navy-tint text-navy-text' } : undefined}
+                                                editing={editRow === x.id}
+                                                onEdit={() => setEditRow(x.id)}
+                                                onClose={() => setEditRow(null)}
+                                                onDelete={() => removeRow(x.id)}
+                                            />
+                                        </li>
+                                    );
+                                }
+                                const sub = [shared && x.by ? x.by : null, 'Allocated', dayLabel(x.date)].filter(Boolean).join(' · ');
+                                return (
+                                    <li key={x.key} className={`flex items-center gap-3 px-3 py-2.5 ${i ? 'border-t border-line' : ''}`}>
+                                        <span className="min-w-0 flex-1">
+                                            <span className="block truncate text-[14.5px] font-bold">From {x.note || 'income'}</span>
+                                            <span className="block text-[12.5px] text-slate">{sub}</span>
+                                        </span>
+                                        <span className={`num text-[14.5px] font-extrabold ${into ? 'text-teal' : ''}`}>{formatMoney(x.amount, { income: into })}</span>
+                                    </li>
+                                );
+                            })}
                     </ul>
+                    <p className="mt-1 text-[12.5px] text-slate">Click a spend or refund to change it. Allocations can’t be changed.</p>
+                    </>
                 )}
             </div>
 
@@ -213,6 +245,7 @@ export default function EnvelopePanel({ e, activity, loading, shared, canAllocat
             <div className="flex flex-col gap-2.5 border-t border-line pt-5">
                 <motion.button
                     type="submit"
+                    form={formId}
                     disabled={!dirty || busy !== null}
                     layout
                     className={`h-11 rounded-xl text-[15px] font-extrabold transition-colors active:scale-[0.98] ${dirty || saved ? 'bg-mint text-on-mint' : 'bg-segment text-slate'}`}
@@ -250,6 +283,6 @@ export default function EnvelopePanel({ e, activity, loading, shared, canAllocat
                 )}
                 {!atZero ? <p className="text-[12.5px] text-slate">It holds {formatMoney(e.balance)}. Move it elsewhere to delete this envelope, or archive it to hide it.</p> : null}
             </div>
-        </form>
+        </div>
     );
 }

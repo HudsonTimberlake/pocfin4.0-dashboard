@@ -11,7 +11,7 @@
 </head>
 <body>
     <div class="flex min-h-screen flex-col items-center px-4 pt-16 pb-8">
-        <a href="{{ config('dashboard.site_url') }}" class="flex items-center gap-2.5"><x-logo :size="40"/><span class="text-2xl font-extrabold tracking-[-0.02em]">PocFin</span></a>
+        <a href="{{ config('dashboard.site_url') }}" class="flex items-center gap-2.5"><x-logo :size="40"/><span class="text-2xl font-extrabold tracking-[-0.02em]">PocFin</span><x-beta/></a>
         <main class="mt-10 w-full max-w-[440px]">{{ $slot }}</main>
         <footer class="mt-auto flex flex-wrap justify-center gap-5 pt-12 text-[13.5px] text-slate">
             <a href="{{ config('dashboard.site_url') }}">pocfin.com</a>

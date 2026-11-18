@@ -1,4 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import HelpButton from '@/components/HelpButton';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Head, router } from '@inertiajs/react';
 import Bar from '@/components/Bar';
@@ -88,6 +89,7 @@ export default function Goals(p: Props) {
                             <span title="We’re still testing goals, so how they work may change. Your money and accounts are never touched." className="rounded-lg bg-navy-tint px-2 py-0.5 text-[12px] font-extrabold tracking-normal text-navy-text">
                                 Beta
                             </span>
+                            <HelpButton topic="goals" />
                         </h1>
                         <p className="mt-0.5 text-[15px] text-slate">Habits for building something up. Checked once a month.</p>
                     </div>
@@ -172,7 +174,7 @@ export default function Goals(p: Props) {
                                             onClose={close}
                                         />
                                     ) : open ? (
-                                        <GoalPanel key={`${open.id}-${open.cycles ? 'full' : 'list'}`} goal={open} today={today} onClose={close} />
+                                        <GoalPanel key={open.id} goal={open} today={today} onClose={close} />
                                     ) : null}
                                 </motion.aside>
                             </>
