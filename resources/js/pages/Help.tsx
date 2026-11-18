@@ -227,7 +227,7 @@ export default function Help(p: Props) {
                 </div>
 
                 {tab === 'guides' ? (
-                    <ul className="grid gap-3 sm:grid-cols-2">
+                    <ul className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2">
                         {GUIDES.map((g) => (
                             <li key={g.key}>
                                 <button type="button" onClick={() => setGuide(g)} className="flex w-full items-center gap-3 rounded-[20px] bg-card p-4 text-left transition-transform active:scale-[0.99]">

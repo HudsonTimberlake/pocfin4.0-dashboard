@@ -215,6 +215,12 @@ export default function Calculators(p: Props) {
     let inputs: ReactNode;
     let answer: ReactNode;
     let canGoal = false;
+    // The headline answer, kept at the top of a narrow screen while the numbers change below it.
+    let pin: { lead: string; big: string } | null = null;
+    const pinIt = (lead: string, big: string) => {
+        pin = { lead, big };
+        return null;
+    };
     let assumptions: ReactNode = null;
     let how = 'An estimate, not financial advice.';
 
@@ -296,6 +302,7 @@ export default function Calculators(p: Props) {
         answer = (
             <>
                 <Answer lead={`You’d have about this at ${i.retire_age}`} big={randsShort(have)} sub={`About ${randsShort(r.have.expected)} in today’s money`} />
+                {pinIt(`You’d have about this at ${i.retire_age}`, randsShort(have))}
                 <div>
                     <div className="h-2.5 overflow-hidden rounded-full bg-segment">
                         <div className={`h-full rounded-full transition-[width] duration-300 ${reached ? 'bg-mint' : 'bg-amber'}`} style={{ width: `${Math.round(r.progress * 100)}%` }} />
@@ -383,6 +390,7 @@ export default function Calculators(p: Props) {
         answer = (
             <>
                 <Answer lead={lead} big={big} sub={`${rands(g.putIn + i.saved)} put in, ${rands(Math.max(0, g.growth))} growth, at ${i.growth}% a year`} />
+                {pinIt(lead, big)}
                 <SplitBar
                     parts={[
                         ...(i.saved > 0 ? [{ label: 'Started with', value: i.saved, tone: 'soft' as const }] : []),
@@ -428,6 +436,7 @@ export default function Calculators(p: Props) {
         answer = (
             <>
                 <Answer lead={`Each month, on a ${rands(r.bond)} loan`} big={rands(r.payment)} sub={`Interest over ${i.years} years: ${rands(r.interest)}`} />
+                {pinIt(`Each month, on a ${rands(r.bond)} loan`, rands(r.payment))}
                 <SplitBar
                     parts={[
                         { label: 'Loan', value: r.bond, tone: 'navy' },
@@ -469,6 +478,7 @@ export default function Calculators(p: Props) {
         answer = (
             <>
                 <Answer lead="Each month" big={rands(r.payment)} sub={`Then ${rands(r.balloonAmount)} due at the end`} />
+                {pinIt("Each month", rands(r.payment))}
                 <SplitBar
                     parts={[
                         { label: 'Financed', value: r.financed, tone: 'navy' },
@@ -516,6 +526,13 @@ export default function Calculators(p: Props) {
                         </button>
                     ))}
                 </div>
+
+                {pin ? (
+                    <div className="sticky top-[60px] z-20 -mx-4 flex items-baseline gap-3 bg-glass px-4 py-2 backdrop-blur min-[860px]:top-0 lg:hidden" aria-hidden="true">
+                        <span className="num text-[24px] leading-none font-extrabold">{(pin as { big: string }).big}</span>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-slate">{(pin as { lead: string }).lead}</span>
+                    </div>
+                ) : null}
 
                 <div className="grid items-start gap-5 lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
                     <div className="flex flex-col gap-5">
