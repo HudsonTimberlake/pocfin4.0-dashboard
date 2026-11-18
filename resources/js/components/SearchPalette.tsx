@@ -33,7 +33,10 @@ const PAGES: { label: string; href: string; icon: IconName; full?: boolean }[] =
     { label: 'Members', href: '/members', icon: 'members' },
     { label: 'Budget settings', href: '/settings', icon: 'settings' },
     { label: 'Help', href: '/help', icon: 'support' },
-    { label: 'Recaps', href: '/recaps', icon: 'recaps', full: true },
+    { label: 'Recaps', href: '/recaps', icon: 'recaps' },
+    { label: 'Premium', href: '/premium', icon: 'premium' },
+    { label: 'Invite friends', href: '/invite', icon: 'invite' },
+    { label: 'Profile and security', href: '/account', icon: 'profile' },
 ];
 const CALCS: [string, string][] = [
     ['retirement', 'Retirement'],

@@ -205,12 +205,14 @@ class PagesTest extends TestCase
             ]]),
         ]);
 
-        $this->signedIn()->get('/recaps')->assertOk()
-            ->assertSee('You kept more than you spent')
-            ->assertSee('8 of 10 envelopes')
-            ->assertSee('−R140.00')
-            ->assertSee('2 older recaps with Premium')
-            ->assertSee('Who recorded what');
+        $this->signedIn()->get('/recaps')->assertOk()->assertInertia(fn (AssertableInertia $p) => $p
+            ->component('Recaps')
+            ->where('lockedCount', 2)
+            ->where('start', '2026-10-01')
+            ->where('recap.kept', '3929.60')
+            ->where('recap.within_budget.count', 8)
+            ->where('recap.envelopes.0.balance_end', '-140.00')
+            ->has('recap.transactions.by_member', 2));
     }
 
     public function test_account_and_delete(): void
@@ -225,11 +227,13 @@ class PagesTest extends TestCase
             'api.test/api/user' => Http::response(['message' => 'x', 'errors' => ['user' => ['Make another member the owner of Our home first.']]], 422),
         ]);
 
-        $this->signedIn()->get('/account')->assertOk()->assertSee('This browser')->assertSee('PocFin app · iPhone 16');
-        $this->get('/account/delete')->assertOk()->assertSee('Your subscription doesn’t stop by itself');
+        $this->signedIn()->get('/account')->assertOk()->assertInertia(fn (AssertableInertia $p) => $p
+            ->component('Account')->where('sessions.0.current', true)->where('sessions.1.name', 'iPhone 16'));
+        $this->get('/account/delete')->assertOk()->assertInertia(fn (AssertableInertia $p) => $p
+            ->component('DeleteAccount')->where('subscription.active', true)->where('subscription.store', 'app_store')->where('blocked', null));
 
         $this->from('/account/delete')->post('/account/delete', ['password' => 'secret', 'understood' => '1'])->assertRedirect('/account/delete');
-        $this->get('/account/delete')->assertSee('Make another member the owner of Our home first.');
+        $this->get('/account/delete')->assertInertia(fn (AssertableInertia $p) => $p->where('blocked', 'Make another member the owner of Our home first.'));
         $this->assertNotNull(session('api_token'));
     }
 
@@ -256,9 +260,36 @@ class PagesTest extends TestCase
             'api.test/api/referrals' => Http::response(['code' => 'THANDI4', 'link' => 'https://pocfin.com/r/THANDI4', 'months' => 1, 'max_months_ahead' => 12, 'budget' => ['id' => 3, 'name' => 'Our home'], 'months_earned' => 1, 'friends' => [['name' => 'Sipho', 'joined_at' => '2026-10-31', 'rewarded' => true]]]),
         ]);
 
-        $this->signedIn()->get('/premium')->assertOk()
-            ->assertSee('Yearly · R399.99 a year')->assertSee('16')->assertSee('Manage in the App Store')
-            ->assertSee('R399.99')->assertSee('Sipho joined with a code');
-        $this->get('/invite')->assertOk()->assertSee('THANDI4')->assertSee('Free month earned');
+        $this->signedIn()->get('/premium')->assertOk()->assertInertia(fn (AssertableInertia $p) => $p
+            ->component('Premium')
+            ->where('subscription.product', 'pocfin_premium_yearly')
+            ->where('events.months_paid', 16)
+            ->where('events.data.0.price', '399.99')
+            ->where('budgets.0.premium.history.0.from', 'Sipho')
+            ->where('manage.app_store', 'https://apps.apple.com/account/subscriptions'));
+        $this->get('/invite')->assertOk()->assertInertia(fn (AssertableInertia $p) => $p
+            ->component('Invite')->where('referrals.code', 'THANDI4')->where('referrals.friends.0.rewarded', true)->where('budgets.0.name', 'Our home'));
+    }
+
+    public function test_account_premium_and_invite_writes(): void
+    {
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        Http::fake([
+            'api.test/api/user' => Http::response(['name' => 'Thandi M', 'email' => 'thandi@example.com']),
+            'api.test/api/user/password' => Http::response(null, 204),
+            'api.test/api/user/sessions/others' => Http::response(null, 204),
+            'api.test/api/subscription/budgets' => Http::response(['ok' => true]),
+            'api.test/api/referrals/budget' => Http::response(['ok' => true]),
+        ]);
+
+        $this->signedIn()->from('/account')->post('/account/profile', ['name' => 'Thandi M'])->assertRedirect('/account');
+        $this->assertSame('Thandi M', session('user.name'));
+        $this->post('/account/password', ['current_password' => 'a', 'password' => 'new-secret-1', 'password_confirmation' => 'new-secret-1'])->assertRedirect();
+        $this->post('/account/password', ['current_password' => 'a', 'password' => 'x', 'password_confirmation' => 'y'])->assertSessionHasErrors('password');
+        $this->post('/account/sessions')->assertRedirect();
+        $this->post('/premium/covered', ['budget_ids' => [3]])->assertRedirect();
+        $this->post('/premium/covered', [])->assertSessionHasErrors('budget_ids');
+        $this->post('/invite/budget', ['budget_id' => 3])->assertRedirect();
+        Http::assertSent(fn (Request $r) => $r->method() === 'PUT' && str_ends_with($r->url(), '/subscription/budgets') && $r['budget_ids'] === [3]);
     }
 }

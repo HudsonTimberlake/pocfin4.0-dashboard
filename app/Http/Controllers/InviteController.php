@@ -6,14 +6,18 @@ use App\Services\Api;
 use App\Services\Shell;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
 
 /** D9 Invite friends: the code and link, who joined, and which budget gets the free months. */
 class InviteController extends Controller
 {
-    public function show(Api $api, Shell $shell): View
+    public function show(Api $api, Shell $shell): Response
     {
-        return view('pages.invite', ['referrals' => $api->json('/referrals'), 'budgets' => $shell->budgets()]);
+        return Inertia::render('Invite', [
+            'referrals' => $api->json('/referrals'),
+            'budgets' => array_map(fn ($b) => ['id' => $b['id'], 'name' => $b['name']], $shell->budgets()),
+        ]);
     }
 
     public function budget(Request $request, Api $api): RedirectResponse

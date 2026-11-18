@@ -18,6 +18,6 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        View::composer(['components.layouts.app', 'partials.nav', 'pages.*'], fn ($view) => $view->with('shell', app(Shell::class)));
+        View::composer(['components.layouts.app', 'partials.nav'], fn ($view) => $view->with('shell', app(Shell::class)));
     }
 }

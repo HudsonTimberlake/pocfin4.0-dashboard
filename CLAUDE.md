@@ -4,11 +4,11 @@ The web view of PocFin: people sign in with their app account and see their budg
 
 ## Stack
 - Laravel 13, Vite, Tailwind CSS v4, Manrope self-hosted.
-- **Version 2 (from 2026-11-17, `../design/dashboard-v2.md`): Inertia 3 + React 19 + TypeScript**, `motion` for animation. Pages in `resources/js/pages` (each sets `Page.layout` to `Shell`, so the menu stays mounted), shared parts in `resources/js/components`, the app's own `money.ts`, `envelopeIcons.ts`, `fillHint.ts`, `calculators.ts` and `goalPlan.ts` copied to `resources/js/shared` (plus `goals.ts`, the display helpers of the app's `goalsApi.ts` without its API calls) (keep in step with `pocfin4.0-app/src/lib`). Root view `resources/views/inertia.blade.php`; shared props in `HandleInertiaRequests` (never the API token). History encryption on, no SSR. Pages move over one at a time; until then the menu links to the release 1 Blade pages with plain links (full load).
+- **Version 2 (from 2026-11-17, `../design/dashboard-v2.md`): Inertia 3 + React 19 + TypeScript**, `motion` for animation. Pages in `resources/js/pages` (each sets `Page.layout` to `Shell`, so the menu stays mounted), shared parts in `resources/js/components`, the app's own `money.ts`, `envelopeIcons.ts`, `fillHint.ts`, `calculators.ts` and `goalPlan.ts` copied to `resources/js/shared` (plus `goals.ts`, the display helpers of the app's `goalsApi.ts` without its API calls) (keep in step with `pocfin4.0-app/src/lib`). Root view `resources/views/inertia.blade.php`; shared props in `HandleInertiaRequests` (never the API token). History encryption on, no SSR. Every signed-in page except the admin area is React now; sign-in, lock, code, errors and admin stay Blade (`resources/views/auth`, `errors`, `admin`, the `layouts.app` + `partials.nav` they use).
 - Colours are CSS variables in `resources/css/app.css` (light in `:root`, dark under `[data-theme="dark"]`), mapped to Tailwind names with `@theme inline`. Only the React root view sets `data-theme` (from the `appearance` cookie: system, light or dark), so Blade pages stay light. Use `bg-card` (not `bg-white`) in React.
 - Writes that shouldn't reload the page (History) are small JSON calls through `resources/js/lib/http.ts` (`send`, CSRF header, a 422 comes back as `Refused` with field messages). The server answers JSON (`Api::ok` turns the API's 422 into a validation error; History turns a 403 into a message).
 - From React, a redirect to a Blade page must be `leave($url)` (an Inertia location answer, a full load), as in `SignedIn`, `IdleLock` and the exception handlers.
-- Release 1 Blade pages: Alpine's **CSP build** (`@alpinejs/csp`): no eval, so every component is in `resources/js/app.js` and the markup only names them.
+- Remaining Blade pages (auth, errors, admin): Alpine's **CSP build** (`@alpinejs/csp`): no eval, so every component is in `resources/js/app.js` and the markup only names them.
 - **No database.** Sessions and cache are files. Everything else comes from the API through `App\Services\Api`.
 
 ## How sign-in works
@@ -32,7 +32,7 @@ The web view of PocFin: people sign in with their app account and see their budg
 - Slow page? Set `DASHBOARD_LOG_TIMING=true` in `.env` (and `php artisan config:clear`): `storage/logs/laravel.log` then gets one `api` line per call with its milliseconds. Turn it off again afterwards.
 
 ## Tests
-`php artisan test` (84 tests, the API faked with `Http::fake`, `Http::preventStrayRequests`). Build assets with `npm run build`; type-check with `npx tsc --noEmit`. To look at pages without a real account: the `dashboard-fake-api` and `pocfin-dashboard-sample` entries in `../.claude/launch.json` serve sample figures (`scripts/fake-api.php`) on port 8021; any sign-in works, so no real account is needed.
+`php artisan test` (85 tests, the API faked with `Http::fake`, `Http::preventStrayRequests`). Build assets with `npm run build`; type-check with `npx tsc --noEmit`. To look at pages without a real account: the `dashboard-fake-api` and `pocfin-dashboard-sample` entries in `../.claude/launch.json` serve sample figures (`scripts/fake-api.php`) on port 8021; any sign-in works, so no real account is needed.
 
 ## Server
 A Laravel app on the `dashboard.pocfin.com` subdomain (HostAfrica), document root `public/`. `.env`: `APP_URL=https://dashboard.pocfin.com`, `APP_ENV=production`, `APP_DEBUG=false`, `POCFIN_API_URL=https://api.pocfin.com/api`, `DASHBOARD_KEY` (the same value as the API's), `SESSION_SECURE_COOKIE=true`, `SESSION_DRIVER=file`, `SESSION_LIFETIME=720`, `SESSION_ENCRYPT=true`, and leave `SESSION_DOMAIN` empty (the cookie stays on the subdomain).
@@ -48,3 +48,6 @@ A Laravel app on the `dashboard.pocfin.com` subdomain (HostAfrica), document roo
 
 ## Search and jump (W4, 2026-11-18)
 `components/SearchPalette.tsx`, opened from `Shell` (⌘K / Ctrl K, G + letter chords). `GET /search-index` (`SearchController`) gives the names once per open; matching is in the browser so nothing typed reaches the server or a log.
+
+## Account area (2026-11-18)
+Recaps, Premium, Invite, Account (profile, password, sessions) and DeleteAccount are Inertia pages from `RecapController`, `PremiumController`, `InviteController`, `AccountController`; writes are normal Inertia posts that redirect back with a `status` toast or validation `errors`. A successful account delete answers `leave(route('sign-in'))`.

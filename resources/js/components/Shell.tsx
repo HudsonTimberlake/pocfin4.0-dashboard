@@ -26,12 +26,12 @@ const MONEY: Item[] = [
     { key: 'members', label: 'Members', href: '/members', icon: 'members', spa: true },
     { key: 'settings', label: 'Budget settings', href: '/settings', icon: 'settings', spa: true },
     { key: 'help', label: 'Help', href: '/help', icon: 'support', spa: true },
-    { key: 'recaps', label: 'Recaps', href: '/recaps', icon: 'recaps' },
+    { key: 'recaps', label: 'Recaps', href: '/recaps', icon: 'recaps', spa: true },
 ];
 const ACCOUNT: Item[] = [
-    { key: 'account', label: 'Profile and security', href: '/account', icon: 'profile' },
-    { key: 'premium', label: 'Premium', href: '/premium', icon: 'premium' },
-    { key: 'invite', label: 'Invite friends', href: '/invite', icon: 'invite' },
+    { key: 'account', label: 'Profile and security', href: '/account', icon: 'profile', spa: true },
+    { key: 'premium', label: 'Premium', href: '/premium', icon: 'premium', spa: true },
+    { key: 'invite', label: 'Invite friends', href: '/invite', icon: 'invite', spa: true },
 ];
 const ADMIN: Item[] = [
     { key: 'users', label: 'Users', href: '/admin/users', icon: 'users' },

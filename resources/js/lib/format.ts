@@ -41,3 +41,24 @@ export function isNegative(amount: string): boolean {
 export function initial(name: string | undefined): string {
     return (name ?? '?').trim().charAt(0).toUpperCase() || '?';
 }
+
+/** "8 Nov", or "8 Nov 2025" outside this year, from a date or an ISO time (relative: "Today"/"Yesterday"). */
+export function dateText(value: string | null | undefined, relative = false): string {
+    if (!value) return '';
+    const d = new Date(value.length === 10 ? `${value}T00:00:00` : value);
+    if (relative) {
+        const t = ymdToday();
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if (iso === t) return 'Today';
+        const y = new Date(`${t}T00:00:00`);
+        y.setDate(y.getDate() - 1);
+        if (iso === `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`) return 'Yesterday';
+    }
+    return `${d.getDate()} ${SHORT[d.getMonth()]}${d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : ''}`;
+}
+
+/** "November 2026" from a date. */
+export function monthYear(ymd: string): string {
+    const d = new Date(`${ymd}T00:00:00`);
+    return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}

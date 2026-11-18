@@ -677,6 +677,33 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/search$#', $path)) {
     ]);
 }
 
+// Recaps, Premium, Invite, Profile (account area).
+if (preg_match('#^/api/dashboard/budgets/(\d+)/recaps$#', $path)) {
+    $m = fn (int $back) => date('Y-m-01', strtotime("-$back months"));
+    $cycles = [['start' => $m(1), 'end' => date('Y-m-t', strtotime($m(1))), 'seen' => false], ['start' => $m(2), 'end' => date('Y-m-t', strtotime($m(2))), 'seen' => true]];
+    $start = $_GET['cycle'] ?? $cycles[0]['start'];
+    if ($start !== $cycles[0]['start']) { return $answer(['cycles' => $cycles, 'locked_count' => 0, 'start' => $start, 'recap' => null, 'premium_required' => true]); }
+    return $answer(['cycles' => [$cycles[0]], 'locked_count' => 1, 'start' => $start, 'premium_required' => false, 'recap' => [
+        'cycle' => ['start' => $cycles[0]['start'], 'end' => $cycles[0]['end']], 'deposits' => '22850.00', 'spent' => '19140.40', 'refunded' => '220.00', 'kept' => '3929.60', 'spent_net' => '18920.40',
+        'to_accounts' => ['savings' => '1000.00', 'holding' => '0.00', 'investment' => '1500.00', 'total' => '2500.00'], 'investing' => ['current' => 5],
+        'transactions' => ['count' => 55, 'by_member' => [['user_id' => 7, 'name' => 'Hudson', 'count' => 31], ['user_id' => 8, 'name' => 'Thandi', 'count' => 24]]],
+        'within_budget' => ['count' => 8, 'of' => 10], 'streak_weeks' => 6,
+        'envelopes' => [['id' => 1, 'name' => 'Groceries', 'kind' => 'everyday', 'spent' => '4508.65', 'balance_end' => '1491.35'], ['id' => 2, 'name' => 'Eating out', 'kind' => 'everyday', 'spent' => '1340.00', 'balance_end' => '-140.00'], ['id' => 8, 'name' => 'Spare', 'kind' => 'saving_up', 'spent' => '0.00', 'balance_end' => '640.00']],
+    ]]);
+}
+$subscriptionShape = ['active' => true, 'until' => date('c', strtotime('+8 months')), 'renews' => true, 'store' => 'app_store', 'product' => 'pocfin_premium_yearly', 'period' => 'normal', 'max_budgets' => 3, 'budgets' => [['id' => 3, 'name' => 'Our home', 'covered' => true], ['id' => 4, 'name' => 'Holiday house', 'covered' => false]]];
+if ($path === '/api/dashboard/premium') {
+    return $answer(['subscription' => $subscriptionShape, 'events' => ['months_paid' => 16, 'since' => date('c', strtotime('-16 months')), 'data' => [['id' => 1, 'type' => 'product_change', 'period_type' => 'normal', 'price' => '399.99', 'currency' => 'ZAR', 'months' => 12, 'period_start' => date('c', strtotime('-4 months')), 'period_end' => date('c', strtotime('+8 months')), 'occurred_at' => date('c', strtotime('-4 months'))]]],
+        'budgets' => ['3' => ['active' => true, 'status' => 'premium', 'until' => date('Y-m-d', strtotime('+8 months')), 'forever' => false, 'subscription' => ['name' => 'Hudson'], 'history' => [['id' => 1, 'source' => 'referral', 'action' => 'months', 'months' => 1, 'until' => null, 'from' => 'Sipho', 'note' => null, 'created_at' => date('c', strtotime('-10 days'))]]], '4' => ['active' => false, 'status' => 'free', 'until' => null, 'forever' => false, 'history' => []]]]);
+}
+if ($path === '/api/subscription') { return $answer($subscriptionShape); }
+if ($path === '/api/subscription/budgets') { return $answer(['ok' => true]); }
+if ($path === '/api/referrals') { return $answer(['code' => 'HUDSON4', 'link' => 'https://pocfin.com/r/HUDSON4', 'months' => 1, 'max_months_ahead' => 12, 'budget' => ['id' => 3, 'name' => 'Our home'], 'months_earned' => 1, 'friends' => [['name' => 'Sipho', 'joined_at' => date('Y-m-d', strtotime('-12 days')), 'rewarded' => true], ['name' => 'Lerato', 'joined_at' => date('Y-m-d', strtotime('-2 days')), 'rewarded' => false]]]); }
+if ($path === '/api/referrals/budget') { return $answer(['ok' => true]); }
+if ($path === '/api/user/sessions') { return $answer(['data' => [['id' => 1, 'name' => 'Dashboard · Chrome on Mac', 'client' => 'web', 'created_at' => date('c', strtotime('-1 hour')), 'last_used_at' => date('c'), 'expires_at' => date('c', strtotime('+11 hours')), 'current' => true], ['id' => 2, 'name' => 'iPhone 16', 'client' => 'app', 'created_at' => date('c', strtotime('-30 days')), 'last_used_at' => null, 'expires_at' => null, 'current' => false]]]); }
+if ($path === '/api/user/sessions/others' || $path === '/api/user/password') { return $answer(null, 204); }
+if ($path === '/api/user' && $method === 'PATCH') { return $answer(['name' => $body['name'] ?? 'Hudson', 'email' => 'demo@example.com']); }
+
 // Analytics (W15): this month from the sample's figures; trends and insights as the boards show them.
 if (preg_match('#^/api/dashboard/budgets/(\d+)/analytics$#', $path, $m)) {
     $tab = $_GET['tab'] ?? 'month';
