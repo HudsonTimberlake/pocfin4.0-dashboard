@@ -591,6 +591,45 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/calculators$#', $path, $m)) {
     return $answer(['calculations' => $state['calcs'], 'prefill' => ['investments' => (int) $m[1] === 4 ? null : ['value' => 141540, 'count' => 2], 'spending_now' => (int) $m[1] === 4 ? null : 18400]]);
 }
 
+// Notes, Members and Budget settings (W17, W17b, W17c).
+$state['notes'] ??= [
+    ['id' => 1, 'body' => 'Eating out ran over again: birthdays. Plan R1,450 for December.', 'shared' => true, 'cycle_start' => date('Y-m-01'), 'remind_at' => null, 'mine' => false, 'author' => 'Thandi', 'created_at' => date('c', strtotime('-9 days'))],
+    ['id' => 2, 'body' => 'Car licence due in February. Holding should reach R4,200 by then.', 'shared' => true, 'cycle_start' => null, 'remind_at' => date('c', strtotime('+7 days 08:00')), 'mine' => true, 'author' => 'Hudson', 'created_at' => date('c', strtotime('-14 days'))],
+    ['id' => 3, 'body' => "Kids’ swimming paused for the holidays.\nResume 15 Jan.", 'shared' => false, 'cycle_start' => null, 'remind_at' => null, 'mine' => true, 'author' => 'Hudson', 'created_at' => date('c', strtotime('-16 days'))],
+];
+$state['invites'] ??= [['id' => 1, 'email' => 'sipho@example.com', 'expires_at' => date('c', strtotime('+5 days'))]];
+$state['bname'] ??= [3 => 'Our home', 4 => 'Holiday house'];
+$state['bday'] ??= [3 => 1, 4 => 1];
+if (preg_match('#^/api/dashboard/budgets/(\d+)/notes(/(\d+))?$#', $path, $m)) {
+    $id = (int) ($m[3] ?? 0);
+    if ($method === 'GET') { return $answer(['notes' => $state['notes'], 'cycle' => ['start' => date('Y-m-01'), 'end' => date('Y-m-t')]]); }
+    if ($method === 'DELETE') { $state['notes'] = array_values(array_filter($state['notes'], fn ($n) => $n['id'] !== $id)); $save(); return $answer(null, 204); }
+    if (trim((string) ($body['body'] ?? 'x')) === '') { return $fail('body', 'The body field is required.'); }
+    $row = ['id' => ++$state['seq'], 'body' => trim($body['body']), 'shared' => (bool) ($body['shared'] ?? false), 'cycle_start' => ! empty($body['this_cycle']) ? date('Y-m-01') : null, 'remind_at' => $body['remind_at'] ?? null, 'mine' => true, 'author' => 'Hudson', 'created_at' => date('c')];
+    array_unshift($state['notes'], $row); $save();
+    return $answer($row, 201);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/members$#', $path, $m)) {
+    return $answer(['me' => 7, 'is_owner' => (int) $m[1] === 3, 'members' => [['id' => 7, 'name' => 'Hudson', 'email' => 'hudson@example.com', 'role' => (int) $m[1] === 3 ? 'owner' : 'member'], ['id' => 8, 'name' => 'Thandi', 'email' => 'thandi@example.com', 'role' => (int) $m[1] === 3 ? 'member' : 'owner']], 'invitations' => (int) $m[1] === 3 ? $state['invites'] : []]);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/invitations(/(\d+))?$#', $path, $m)) {
+    if ($method === 'DELETE') { $state['invites'] = array_values(array_filter($state['invites'], fn ($i) => $i['id'] !== (int) $m[3])); $save(); return $answer(null, 204); }
+    if (($body['email'] ?? '') === 'thandi@example.com') { return $fail('email', 'This person is already a member of the budget.'); }
+    $state['invites'] = array_values(array_filter($state['invites'], fn ($i) => $i['email'] !== $body['email']));
+    $state['invites'][] = ['id' => ++$state['seq'], 'email' => $body['email'], 'expires_at' => date('c', strtotime('+7 days'))]; $save();
+    return $answer(end($state['invites']), 201);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/(members/\d+|owner|leave)$#', $path) && $method !== 'GET') { return $answer(null, 204); }
+if (preg_match('#^/api/dashboard/budgets/(\d+)/settings$#', $path, $m)) {
+    return $answer(['id' => (int) $m[1], 'name' => $state['bname'][(int) $m[1]], 'currency' => 'ZAR', 'cycle_start_day' => $state['bday'][(int) $m[1]], 'monthly_income' => '22850.00', 'role' => (int) $m[1] === 3 ? 'owner' : 'member', 'premium' => ['active' => (int) $m[1] === 3, 'status' => (int) $m[1] === 3 ? 'premium' : 'free', 'until' => '2027-03-02', 'forever' => false], 'paused' => false]);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)$#', $path, $m) && $method !== 'GET') {
+    if ($method === 'DELETE') { return $answer(null, 204); }
+    if (isset($body['name']) && trim($body['name']) === '') { return $fail('name', 'The name field is required.'); }
+    $state['bname'][(int) $m[1]] = trim($body['name'] ?? $state['bname'][(int) $m[1]]); $state['bday'][(int) $m[1]] = (int) ($body['cycle_start_day'] ?? $state['bday'][(int) $m[1]]); $save();
+    return $answer(['id' => (int) $m[1], 'name' => $state['bname'][(int) $m[1]], 'cycle_start_day' => $state['bday'][(int) $m[1]], 'role' => 'owner', 'premium' => ['active' => true, 'status' => 'premium', 'until' => '2027-03-02', 'forever' => false]]);
+}
+
 // Analytics (W15): this month from the sample's figures; trends and insights as the boards show them.
 if (preg_match('#^/api/dashboard/budgets/(\d+)/analytics$#', $path, $m)) {
     $tab = $_GET['tab'] ?? 'month';

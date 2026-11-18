@@ -21,6 +21,9 @@ const MONEY: Item[] = [
     { key: 'automatic', label: 'Automatic', href: '/automatic', icon: 'automatic', spa: true },
     { key: 'analytics', label: 'Analytics', href: '/analytics', icon: 'analytics', spa: true },
     { key: 'calculators', label: 'Calculators', href: '/calculators', icon: 'calculators', spa: true },
+    { key: 'notes', label: 'Notes', href: '/notes', icon: 'notes', spa: true },
+    { key: 'members', label: 'Members', href: '/members', icon: 'members', spa: true },
+    { key: 'settings', label: 'Budget settings', href: '/settings', icon: 'settings', spa: true },
     { key: 'recaps', label: 'Recaps', href: '/recaps', icon: 'recaps' },
 ];
 const ACCOUNT: Item[] = [

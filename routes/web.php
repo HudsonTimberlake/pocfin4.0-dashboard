@@ -5,6 +5,7 @@ use App\Http\Controllers\AccountsController;
 use App\Http\Controllers\AllocateController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AutomaticController;
+use App\Http\Controllers\BudgetAreaController;
 use App\Http\Controllers\CalculatorsController;
 use App\Http\Controllers\Admin\LogController as AdminLogController;
 use App\Http\Controllers\Admin\SupportController as AdminSupportController;
@@ -74,6 +75,20 @@ Route::middleware(['signed.in', 'idle'])->group(function () {
     Route::post('/calculators/saved', [CalculatorsController::class, 'store']);
     Route::patch('/calculators/saved/{calculation}', [CalculatorsController::class, 'update'])->whereNumber('calculation');
     Route::delete('/calculators/saved/{calculation}', [CalculatorsController::class, 'destroy'])->whereNumber('calculation');
+    // Version 2 Notes, Members and Budget settings (W17, W17b, W17c).
+    Route::get('/notes', [BudgetAreaController::class, 'notes'])->name('notes');
+    Route::post('/notes', [BudgetAreaController::class, 'storeNote']);
+    Route::patch('/notes/{note}', [BudgetAreaController::class, 'updateNote'])->whereNumber('note');
+    Route::delete('/notes/{note}', [BudgetAreaController::class, 'destroyNote'])->whereNumber('note');
+    Route::get('/members', [BudgetAreaController::class, 'members'])->name('members');
+    Route::post('/members/invitations', [BudgetAreaController::class, 'invite']);
+    Route::delete('/members/invitations/{invitation}', [BudgetAreaController::class, 'cancelInvite'])->whereNumber('invitation');
+    Route::delete('/members/{member}', [BudgetAreaController::class, 'removeMember'])->whereNumber('member');
+    Route::put('/members/owner', [BudgetAreaController::class, 'makeOwner']);
+    Route::post('/members/leave', [BudgetAreaController::class, 'leave']);
+    Route::get('/settings', [BudgetAreaController::class, 'settings'])->name('settings');
+    Route::patch('/settings', [BudgetAreaController::class, 'updateSettings']);
+    Route::delete('/settings', [BudgetAreaController::class, 'destroyBudget']);
     // Version 2 Analytics (W15).
     Route::get('/analytics', [AnalyticsController::class, 'show'])->name('analytics');
     // Version 2 Automatic (W14).
