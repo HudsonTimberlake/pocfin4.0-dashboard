@@ -2,6 +2,7 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import AddPanel from '@/components/AddPanel';
+import SearchPalette, { GO_KEYS } from '@/components/SearchPalette';
 import Icon, { type IconName } from '@/components/Icon';
 import { AppContext, type AddOpen, type Toast } from '@/lib/app';
 import { followSystem, setAppearance } from '@/lib/appearance';
@@ -317,6 +318,7 @@ export default function Shell({ active, title, children }: { active: string; tit
     const { url, props } = usePage<Shared>();
     const reduced = useReducedMotion();
     const [menu, setMenu] = useState(false);
+    const [search, setSearch] = useState(false);
     const [add, setAdd] = useState<{ open: boolean; start: AddOpen }>({ open: false, start: {} });
     const [toast, setToast] = useState<(Toast & { id: number }) | null>(null);
     const lockForm = useRef<HTMLFormElement>(null);
@@ -350,6 +352,29 @@ export default function Shell({ active, title, children }: { active: string; tit
         return () => window.removeEventListener('keydown', onKey);
     }, [add.open, openAdd]);
 
+    // ⌘K or Ctrl K opens search and jump; G then a letter jumps to a page (not while typing).
+    useEffect(() => {
+        let g = 0;
+        const onKey = (e: KeyboardEvent) => {
+            const t = e.target as HTMLElement;
+            if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey) && !e.altKey) {
+                e.preventDefault();
+                setSearch((o) => !o);
+                return;
+            }
+            if (e.metaKey || e.ctrlKey || e.altKey || search || add.open || t?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
+            const k = e.key.toLowerCase();
+            if (g && Date.now() - g < 1200 && GO_KEYS[k]) {
+                e.preventDefault();
+                g = 0;
+                router.visit(GO_KEYS[k]);
+            } else g = k === 'g' ? Date.now() : 0;
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [search, add.open]);
+    const closeSearch = useCallback(() => setSearch(false), []);
+
     return (
         <AppContext.Provider value={app}>
             <div className="flex min-h-screen bg-canvas text-ink">
@@ -369,6 +394,9 @@ export default function Shell({ active, title, children }: { active: string; tit
                             <Icon name="menu" stroke={2.2} />
                         </button>
                         <span className="flex-1 truncate text-lg font-extrabold">{title}</span>
+                        <button type="button" onClick={() => setSearch(true)} aria-label="Search" className="grid size-11 place-items-center rounded-[14px] bg-card">
+                            <Icon name="search" stroke={2.2} />
+                        </button>
                         <button type="button" onClick={() => openAdd()} aria-label="Add" className="grid size-11 place-items-center rounded-[14px] bg-mint text-on-mint transition-transform active:scale-[0.97]">
                             <Icon name="plus" stroke={2.6} />
                         </button>
@@ -399,6 +427,11 @@ export default function Shell({ active, title, children }: { active: string; tit
 
                     <div className="flex flex-col gap-5 px-4 pt-3 pb-16 min-[860px]:px-8 min-[860px]:pt-5">
                         <div role="toolbar" aria-label="Top bar" className="hidden flex-wrap items-center gap-2.5 min-[860px]:flex">
+                            <button type="button" onClick={() => setSearch(true)} className="flex h-11 min-w-[200px] flex-1 items-center gap-2 rounded-[14px] bg-card px-3.5 text-left text-[15px] font-bold text-muted sm:max-w-[320px] sm:flex-none">
+                                <Icon name="search" size={18} />
+                                <span className="flex-1">Search</span>
+                                <kbd className="rounded-lg bg-segment px-2 py-0.5 font-sans text-xs font-extrabold text-slate">⌘K</kbd>
+                            </button>
                             <div className="flex-1" />
                             <AppearanceSwitch />
                             <AddButton onClick={() => openAdd()} />
@@ -417,6 +450,7 @@ export default function Shell({ active, title, children }: { active: string; tit
                         </div>
                     </div>
                 </div>
+                {search ? <SearchPalette onClose={closeSearch} openAdd={openAdd} /> : null}
                 <AddPanel open={add.open} start={add.start} onClose={() => setAdd((a) => ({ ...a, open: false }))} />
                 <ToastView toast={toast} onDone={clearToast} />
             </div>

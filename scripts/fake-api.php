@@ -666,6 +666,17 @@ if (preg_match('#^/api/dashboard/support/threads(/(\d+)/(messages|close))?$#', $
     return $answer(['message' => 'Not found.'], 404);
 }
 
+// Search and jump (W4): names and one figure each.
+if (preg_match('#^/api/dashboard/budgets/(\d+)/search$#', $path)) {
+    $goalNames = array_map(fn ($g) => ['id' => $g['id'], 'name' => $g['name']], array_values(array_filter($state['goals'] ?? [], fn ($g) => ($g['status'] ?? 'active') === 'active')));
+    return $answer([
+        'envelopes' => array_values(array_map(fn ($e) => ['id' => $e['id'], 'name' => $e['name'], 'icon' => $e['icon'] ?? null, 'balance' => (string) $e['balance']], array_filter($envelopes, fn ($e) => empty($e['archived'])))),
+        'accounts' => array_map(fn ($a) => ['id' => $a['id'], 'name' => $a['name'], 'type' => $a['type'], 'balance' => (string) ($a['value'] ?? $a['balance'])], $accounts),
+        'goals' => $goalNames ?: [['id' => 1, 'name' => 'Emergency fund'], ['id' => 2, 'name' => 'Retire at 65']],
+        'unallocated' => $s($state['unallocated']),
+    ]);
+}
+
 // Analytics (W15): this month from the sample's figures; trends and insights as the boards show them.
 if (preg_match('#^/api/dashboard/budgets/(\d+)/analytics$#', $path, $m)) {
     $tab = $_GET['tab'] ?? 'month';

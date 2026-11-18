@@ -16,6 +16,7 @@ use App\Http\Controllers\EditEnvelopesController;
 use App\Http\Controllers\EnvelopeController;
 use App\Http\Controllers\GoalsController;
 use App\Http\Controllers\HelpController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\MoneyController;
@@ -90,6 +91,8 @@ Route::middleware(['signed.in', 'idle'])->group(function () {
     Route::get('/settings', [BudgetAreaController::class, 'settings'])->name('settings');
     Route::patch('/settings', [BudgetAreaController::class, 'updateSettings']);
     Route::delete('/settings', [BudgetAreaController::class, 'destroyBudget']);
+    // Version 2 Search and jump (W4): the names to look through; matching happens in the browser.
+    Route::get('/search-index', [SearchController::class, 'index']);
     // Version 2 Help (W18): guides, Contact us, Your messages.
     Route::get('/help', [HelpController::class, 'show'])->name('help');
     Route::post('/help/threads', [HelpController::class, 'start']);
