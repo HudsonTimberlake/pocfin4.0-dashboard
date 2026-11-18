@@ -16,6 +16,7 @@ type Props = {
     accounts: Place[];
     purposes: Place[];
     cycle: { start: string; end: string } | null;
+    start_new?: boolean;
 };
 
 /**
@@ -26,7 +27,7 @@ type Props = {
 export default function Goals(p: Props) {
     const reduced = useReducedMotion();
     const today = ymd();
-    const [panel, setPanel] = useState<number | 'new' | null>(p.selected?.id ?? null);
+    const [panel, setPanel] = useState<number | 'new' | null>(p.selected?.id ?? (p.start_new ? 'new' : null));
     const [showPast, setShowPast] = useState(false);
     useEffect(() => setPanel((cur) => (p.selected ? p.selected.id : cur === 'new' ? cur : null)), [p.selected]);
 

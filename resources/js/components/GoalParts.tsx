@@ -8,6 +8,7 @@ import { cleanTyped, toAmount, ymd } from '@/lib/amount';
 import { useApp } from '@/lib/app';
 import { formatMoney, toCents } from '@/lib/format';
 import { ARRIVE } from '@/lib/motion';
+import { GOAL_PREFILL_KEY, type GoalPrefill } from '@/lib/calcGoal';
 import { randsShort } from '@/shared/calculators';
 import { nextReviewMonth, planNow, planSeries, targetInTodaysMoney } from '@/shared/goalPlan';
 import { goalChip, goalPercent, monthLabel, monthLetter, monthsFrom, perCycleHint, planOf, SHAPES, type Chip, type Goal, type GoalKind } from '@/shared/goals';
@@ -276,9 +277,40 @@ export function GoalPanel({ goal, today, onClose }: { goal: Goal; today: string;
                     Delete goal
                 </button>
             )}
+            {goal.kind === 'value' ? (
+                <button type="button" onClick={() => openInCalculator(goal)} className="self-start text-[13.5px] font-bold text-teal hover:underline">
+                    Open in Retirement calculator
+                </button>
+            ) : null}
             {goal.kind === 'value' ? <p className="text-[12px] text-slate">{DISCLAIMER}</p> : null}
         </div>
     );
+}
+
+/** The goal's own plan in the Retirement calculator (carried in this browser tab, never the address). */
+function openInCalculator(goal: Goal) {
+    const p = planOf(goal);
+    const today = targetInTodaysMoney(p);
+    const age = goal.age ?? 35;
+    const retire = goal.retire_age ?? Math.max(age + 1, age + Math.round(monthsFrom(ymd(), `${goal.target_month ?? ymd().slice(0, 7)}-01`) / 12));
+    const inputs = {
+        age,
+        retire_age: retire,
+        spending: Math.round(today / 300 / 100) * 100,
+        saved: Math.round(Number(goal.value ?? 0)),
+        monthly: Math.round(Number(goal.amount_per_cycle ?? 0)),
+        raise_mode: goal.raise_mode ?? 'percent',
+        ...(goal.raise_mode === 'amount' ? { raise_amount: Number(goal.raise_value ?? 0) } : { raise: Number(goal.raise_value ?? 6) }),
+        growth: Number(goal.growth_pct ?? 10),
+        spread: Number(goal.spread_pct ?? 2),
+        inflation: Number(goal.inflation_pct ?? 5),
+    };
+    try {
+        sessionStorage.setItem('pocfin-calc-prefill', JSON.stringify({ kind: 'retirement', inputs }));
+    } catch {
+        /* opens with its own figures */
+    }
+    router.visit('/calculators');
 }
 
 /** Edit goal, in place: name, the amount, the date, the payday reminder. A save plans again from today. */
@@ -382,14 +414,26 @@ const KINDS: { kind: GoalKind; label: string; sub: string }[] = [
  * when it starts, with the monthly pace worked out as you type. Nothing moves; PocFin suggests it
  * on payday.
  */
+/** What "Make this a goal" on Calculators left in this browser tab (read once, then forgotten). */
+function takeGoalPrefill(): GoalPrefill | null {
+    try {
+        const raw = sessionStorage.getItem(GOAL_PREFILL_KEY);
+        sessionStorage.removeItem(GOAL_PREFILL_KEY);
+        return raw ? (JSON.parse(raw) as GoalPrefill) : null;
+    } catch {
+        return null;
+    }
+}
+
 export function NewGoal({ accounts, purposes, takenAccounts, takenPurposes, cycleStart, onClose }: { accounts: Place[]; purposes: Place[]; takenAccounts: number[]; takenPurposes: number[]; cycleStart: string; onClose: () => void }) {
-    const [step, setStep] = useState<1 | 2>(1);
-    const [kind, setKind] = useState<GoalKind>('target');
-    const [name, setName] = useState('');
+    const [pre] = useState(takeGoalPrefill);
+    const [step, setStep] = useState<1 | 2>(pre ? 2 : 1);
+    const [kind, setKind] = useState<GoalKind>(pre ? 'value' : 'target');
+    const [name, setName] = useState(pre?.name ?? '');
     const [place, setPlace] = useState('');
-    const [target, setTarget] = useState('');
-    const [each, setEach] = useState('');
-    const [by, setBy] = useState('');
+    const [target, setTarget] = useState(pre?.target ?? '');
+    const [each, setEach] = useState(pre?.each ?? '');
+    const [by, setBy] = useState(pre?.by ?? '');
     const [starts, setStarts] = useState(0);
     const [remind, setRemind] = useState(true);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -433,6 +477,7 @@ export function NewGoal({ accounts, purposes, takenAccounts, takenPurposes, cycl
             ...(kind === 'habit' || kind === 'value' ? { amount_per_cycle: toAmount(each) } : {}),
             ...(kind === 'target' || kind === 'value' ? { target_month: by } : {}),
             ...(starts > 0 ? { starts_on: startMonth(starts) } : {}),
+            ...(kind === 'value' && pre ? pre.plan : {}),
             remind_on_payday: remind,
         }, { preserveScroll: true, onError: (er) => setErrors(er as Record<string, string>), onFinish: () => setBusy(false) });
     }

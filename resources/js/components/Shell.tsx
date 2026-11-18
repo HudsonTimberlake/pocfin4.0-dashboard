@@ -20,6 +20,7 @@ const MONEY: Item[] = [
     { key: 'goals', label: 'Goals', href: '/goals', icon: 'goals', spa: true },
     { key: 'automatic', label: 'Automatic', href: '/automatic', icon: 'automatic', spa: true },
     { key: 'analytics', label: 'Analytics', href: '/analytics', icon: 'analytics', spa: true },
+    { key: 'calculators', label: 'Calculators', href: '/calculators', icon: 'calculators', spa: true },
     { key: 'recaps', label: 'Recaps', href: '/recaps', icon: 'recaps' },
 ];
 const ACCOUNT: Item[] = [

@@ -33,6 +33,8 @@ class GoalsController extends Controller
             'accounts' => array_map(fn (array $a) => ['id' => $a['id'], 'name' => $a['name'], 'type' => $a['type']], $page['accounts'] ?? []),
             'purposes' => array_map(fn (array $p) => ['id' => $p['id'], 'name' => $p['name']], $page['purposes'] ?? []),
             'cycle' => $page['cycle'] ?? null,
+            // From Calculators' Make this a goal: New goal opens, filled in from this browser tab.
+            'start_new' => $request->boolean('new'),
         ]);
     }
 
@@ -46,6 +48,14 @@ class GoalsController extends Controller
         'target_month' => ['sometimes', 'nullable', 'date_format:Y-m'],
         'starts_on' => ['sometimes', 'date_format:Y-m-d'],
         'remind_on_payday' => ['sometimes', 'boolean'],
+        // A value goal's plan, as the Retirement calculator hands it over ("Make this a goal").
+        'raise_mode' => ['sometimes', 'nullable', 'in:percent,amount'],
+        'raise_value' => ['sometimes', 'nullable', 'string', 'max:20'],
+        'growth_pct' => ['sometimes', 'nullable', 'string', 'max:10'],
+        'spread_pct' => ['sometimes', 'nullable', 'string', 'max:10'],
+        'inflation_pct' => ['sometimes', 'nullable', 'string', 'max:10'],
+        'age' => ['sometimes', 'nullable', 'integer', 'between:0,120'],
+        'retire_age' => ['sometimes', 'nullable', 'integer', 'between:0,120'],
     ];
 
     public function store(Request $request): RedirectResponse

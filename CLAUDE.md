@@ -32,7 +32,10 @@ The web view of PocFin: people sign in with their app account and see their budg
 - Slow page? Set `DASHBOARD_LOG_TIMING=true` in `.env` (and `php artisan config:clear`): `storage/logs/laravel.log` then gets one `api` line per call with its milliseconds. Turn it off again afterwards.
 
 ## Tests
-`php artisan test` (73 tests, the API faked with `Http::fake`, `Http::preventStrayRequests`). Build assets with `npm run build`; type-check with `npx tsc --noEmit`. To look at pages without a real account: the `dashboard-fake-api` and `pocfin-dashboard-sample` entries in `../.claude/launch.json` serve sample figures (`scripts/fake-api.php`) on port 8021; any sign-in works, so no real account is needed.
+`php artisan test` (76 tests, the API faked with `Http::fake`, `Http::preventStrayRequests`). Build assets with `npm run build`; type-check with `npx tsc --noEmit`. To look at pages without a real account: the `dashboard-fake-api` and `pocfin-dashboard-sample` entries in `../.claude/launch.json` serve sample figures (`scripts/fake-api.php`) on port 8021; any sign-in works, so no real account is needed.
 
 ## Server
 A Laravel app on the `dashboard.pocfin.com` subdomain (HostAfrica), document root `public/`. `.env`: `APP_URL=https://dashboard.pocfin.com`, `APP_ENV=production`, `APP_DEBUG=false`, `POCFIN_API_URL=https://api.pocfin.com/api`, `DASHBOARD_KEY` (the same value as the API's), `SESSION_SECURE_COOKIE=true`, `SESSION_DRIVER=file`, `SESSION_LIFETIME=720`, `SESSION_ENCRYPT=true`, and leave `SESSION_DOMAIN` empty (the cookie stays on the subdomain).
+
+## Calculators (W16, 2026-11-18)
+`/calculators`: the maths runs in the browser (`shared/calculators.ts`); the server only keeps saved inputs (`/calculators/saved`, JSON via `send`). Saved inputs use the app's own keys, so they open on the phone. "Make this a goal" leaves `pocfin-goal-prefill` in sessionStorage (`lib/calcGoal.ts`) and opens `/goals?new=1`; a value goal's "Open in Retirement calculator" leaves `pocfin-calc-prefill`. Goals' store passes a value goal's plan fields (raise, growth, spread, inflation, ages).

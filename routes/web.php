@@ -5,6 +5,7 @@ use App\Http\Controllers\AccountsController;
 use App\Http\Controllers\AllocateController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AutomaticController;
+use App\Http\Controllers\CalculatorsController;
 use App\Http\Controllers\Admin\LogController as AdminLogController;
 use App\Http\Controllers\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
@@ -68,6 +69,11 @@ Route::middleware(['signed.in', 'idle'])->group(function () {
     Route::put('/goals/{goal}', [GoalsController::class, 'update'])->whereNumber('goal');
     Route::delete('/goals/{goal}', [GoalsController::class, 'destroy'])->whereNumber('goal');
     Route::post('/goals/{goal}/{action}', [GoalsController::class, 'act'])->whereNumber('goal')->whereIn('action', ['finish', 'snooze', 'reviewed']);
+    // Version 2 Calculators (W16): the maths is in the browser; only saved inputs go to the server.
+    Route::get('/calculators', [CalculatorsController::class, 'show'])->name('calculators');
+    Route::post('/calculators/saved', [CalculatorsController::class, 'store']);
+    Route::patch('/calculators/saved/{calculation}', [CalculatorsController::class, 'update'])->whereNumber('calculation');
+    Route::delete('/calculators/saved/{calculation}', [CalculatorsController::class, 'destroy'])->whereNumber('calculation');
     // Version 2 Analytics (W15).
     Route::get('/analytics', [AnalyticsController::class, 'show'])->name('analytics');
     // Version 2 Automatic (W14).

@@ -30,6 +30,8 @@ export type Goal = {
     growth_pct: string | null;
     spread_pct: string | null;
     inflation_pct: string | null;
+    age?: number | null;
+    retire_age?: number | null;
     status: 'active' | 'finished';
     finished_at: string | null;
     outcome: 'reached' | 'ended' | null;

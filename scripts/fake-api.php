@@ -567,6 +567,30 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/automatic$#', $path)) {
         'envelopes' => $envelopes, 'accounts' => array_values(array_filter($accounts, fn ($a) => $a['type'] !== 'investment')), 'members' => $overview['members']]);
 }
 
+// Calculators (W16): saved inputs (shared with the budget), what the page offers from the figures.
+$state['calcs'] ??= [
+    ['id' => 1, 'kind' => 'retirement', 'name' => 'Retire at 65', 'inputs' => ['age' => 35, 'retire_age' => 65, 'spending' => 30000, 'saved' => 141540, 'monthly' => 3000, 'raise' => 6, 'raise_mode' => 'percent'], 'author' => 'Thandi', 'updated_by' => 'Thandi', 'updated_at' => date('c', strtotime('-6 days'))],
+    ['id' => 2, 'kind' => 'home_loan', 'name' => 'Parkhurst house', 'inputs' => ['loan' => 2400000, 'deposit' => 240000, 'rate' => 11.25, 'years' => 20, 'extra' => 1000, 'testRate' => 12.25], 'author' => 'Hudson', 'updated_by' => 'Hudson', 'updated_at' => date('c', strtotime('-14 days'))],
+    ['id' => 3, 'kind' => 'growth', 'name' => 'Kids’ varsity', 'inputs' => ['mode' => 'monthly', 'target' => 500000, 'years' => 10, 'saved' => 20000, 'monthly' => 1500, 'growth' => 9, 'inflation' => 5, 'target_basis' => 'then'], 'author' => 'Thandi', 'updated_by' => null, 'updated_at' => date('c', strtotime('-30 days'))],
+];
+if (preg_match('#^/api/dashboard/budgets/(\d+)/calculations(/(\d+))?$#', $path, $m) && $method !== 'GET') {
+    $id = (int) ($m[3] ?? 0);
+    if ($method === 'DELETE') { $state['calcs'] = array_values(array_filter($state['calcs'], fn ($c) => $c['id'] !== $id)); $save(); return $answer(null, 204); }
+    if (trim((string) ($body['name'] ?? 'x')) === '') { return $fail('name', 'The name field is required.'); }
+    if ($method === 'POST') {
+        $row = ['id' => max(array_column($state['calcs'], 'id') ?: [0]) + 1, 'kind' => $body['kind'], 'name' => trim($body['name']), 'inputs' => $body['inputs'], 'author' => 'You', 'updated_by' => 'You', 'updated_at' => date('c')];
+        array_unshift($state['calcs'], $row); $created = true;
+    } else {
+        foreach ($state['calcs'] as $k => $c) { if ($c['id'] === $id) { $state['calcs'][$k] = array_replace($c, array_intersect_key($body, ['name' => 1, 'inputs' => 1]), ['updated_by' => 'You', 'updated_at' => date('c')]); $row = $state['calcs'][$k]; } }
+        $state['calcs'] = array_values($state['calcs']);
+    }
+    $save();
+    return $answer($row, ! empty($created) ? 201 : 200);
+}
+if (preg_match('#^/api/dashboard/budgets/(\d+)/calculators$#', $path, $m)) {
+    return $answer(['calculations' => $state['calcs'], 'prefill' => ['investments' => (int) $m[1] === 4 ? null : ['value' => 141540, 'count' => 2], 'spending_now' => (int) $m[1] === 4 ? null : 18400]]);
+}
+
 // Analytics (W15): this month from the sample's figures; trends and insights as the boards show them.
 if (preg_match('#^/api/dashboard/budgets/(\d+)/analytics$#', $path, $m)) {
     $tab = $_GET['tab'] ?? 'month';
