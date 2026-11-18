@@ -9,6 +9,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -73,6 +74,34 @@ class Api
         $this->allow($path);
 
         return $this->send(fn () => $this->request()->delete($path, $data), 'DELETE '.$path);
+    }
+
+    /** A file (a receipt photo) sent on as multipart. */
+    public function upload(string $path, string $field, UploadedFile $file): Response
+    {
+        $this->allow($path);
+
+        return $this->send(fn () => $this->request()->attach($field, $file->get(), $file->getClientOriginalName())->post($path), 'POST '.$path);
+    }
+
+    /**
+     * A POST with form fields and several files (support screenshots): `images[0]`, `images[1]`…
+     *
+     * @param  array<string, string>  $fields
+     * @param  list<UploadedFile>  $files
+     */
+    public function multipart(string $path, array $fields, array $files, string $name = 'images'): Response
+    {
+        $this->allow($path);
+
+        return $this->send(function () use ($path, $fields, $files, $name) {
+            $request = $this->request();
+            foreach ($files as $i => $file) {
+                $request = $request->attach("{$name}[{$i}]", $file->get(), $file->getClientOriginalName());
+            }
+
+            return $request->post($path, $fields);
+        }, 'POST '.$path);
     }
 
     /** The JSON of a GET that must work. */

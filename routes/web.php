@@ -2,13 +2,24 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AccountsController;
+use App\Http\Controllers\AllocateController;
+use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\AutomaticController;
+use App\Http\Controllers\BudgetAreaController;
+use App\Http\Controllers\CalculatorsController;
 use App\Http\Controllers\Admin\LogController as AdminLogController;
 use App\Http\Controllers\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BudgetController;
+use App\Http\Controllers\EditEnvelopesController;
+use App\Http\Controllers\EnvelopeController;
+use App\Http\Controllers\GoalsController;
+use App\Http\Controllers\HelpController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\InviteController;
+use App\Http\Controllers\MoneyController;
 use App\Http\Controllers\OverviewController;
 use App\Http\Controllers\PremiumController;
 use App\Http\Controllers\RecapController;
@@ -35,12 +46,101 @@ Route::middleware(['signed.in', 'idle'])->group(function () {
     Route::post('/budget/switch', [BudgetController::class, 'switch'])->name('budget.switch');
 
     Route::get('/', [OverviewController::class, 'show'])->name('overview');
+
+    // Version 2: the Add panel and in-place edits (W3). Amounts and notes travel in the body, never the address.
+    Route::get('/add/options', [MoneyController::class, 'options'])->name('add.options');
+    Route::post('/money/expenses', [MoneyController::class, 'storeExpense'])->name('money.expense');
+    Route::patch('/money/expenses/{expense}', [MoneyController::class, 'updateExpense'])->whereNumber('expense');
+    Route::delete('/money/expenses/{expense}', [MoneyController::class, 'destroyExpense'])->whereNumber('expense');
+    Route::post('/money/income', [MoneyController::class, 'storeIncome'])->name('money.income');
+    Route::post('/money/moves', [MoneyController::class, 'storeMove'])->name('money.move');
+    Route::post('/money/accounts/{account}/expenses', [MoneyController::class, 'storeAccountExpense'])->whereNumber('account');
     Route::get('/budget', [BudgetController::class, 'show'])->name('budget');
+    // Version 2 Budget writes (W6/W7).
+    Route::post('/envelopes', [EnvelopeController::class, 'store'])->name('envelopes.store');
+    Route::put('/envelopes/order', [EnvelopeController::class, 'reorder'])->name('envelopes.order');
+    Route::patch('/envelopes/{envelope}', [EnvelopeController::class, 'update'])->whereNumber('envelope');
+    Route::delete('/envelopes/{envelope}', [EnvelopeController::class, 'destroy'])->whereNumber('envelope');
+    // Version 2 Edit envelopes (W9): one Save for names, kinds, amounts, order and income; plans.
+    Route::get('/budget/edit', [EditEnvelopesController::class, 'show'])->name('budget.edit');
+    Route::post('/budget/edit', [EditEnvelopesController::class, 'save']);
+    Route::post('/budget/plans', [EditEnvelopesController::class, 'storePlan']);
+    Route::delete('/budget/plans/{plan}', [EditEnvelopesController::class, 'destroyPlan'])->whereNumber('plan');
+    // Version 2 Goals (W13).
+    Route::get('/goals', [GoalsController::class, 'show'])->name('goals');
+    Route::post('/goals', [GoalsController::class, 'store']);
+    Route::put('/goals/{goal}', [GoalsController::class, 'update'])->whereNumber('goal');
+    Route::delete('/goals/{goal}', [GoalsController::class, 'destroy'])->whereNumber('goal');
+    Route::post('/goals/{goal}/{action}', [GoalsController::class, 'act'])->whereNumber('goal')->whereIn('action', ['finish', 'snooze', 'reviewed']);
+    // Version 2 Calculators (W16): the maths is in the browser; only saved inputs go to the server.
+    Route::get('/calculators', [CalculatorsController::class, 'show'])->name('calculators');
+    Route::post('/calculators/saved', [CalculatorsController::class, 'store']);
+    Route::patch('/calculators/saved/{calculation}', [CalculatorsController::class, 'update'])->whereNumber('calculation');
+    Route::delete('/calculators/saved/{calculation}', [CalculatorsController::class, 'destroy'])->whereNumber('calculation');
+    // Version 2 Notes, Members and Budget settings (W17, W17b, W17c).
+    Route::get('/notes', [BudgetAreaController::class, 'notes'])->name('notes');
+    Route::post('/notes', [BudgetAreaController::class, 'storeNote']);
+    Route::patch('/notes/{note}', [BudgetAreaController::class, 'updateNote'])->whereNumber('note');
+    Route::delete('/notes/{note}', [BudgetAreaController::class, 'destroyNote'])->whereNumber('note');
+    Route::get('/members', [BudgetAreaController::class, 'members'])->name('members');
+    Route::post('/members/invitations', [BudgetAreaController::class, 'invite']);
+    Route::delete('/members/invitations/{invitation}', [BudgetAreaController::class, 'cancelInvite'])->whereNumber('invitation');
+    Route::delete('/members/{member}', [BudgetAreaController::class, 'removeMember'])->whereNumber('member');
+    Route::put('/members/owner', [BudgetAreaController::class, 'makeOwner']);
+    Route::post('/members/leave', [BudgetAreaController::class, 'leave']);
+    Route::get('/settings', [BudgetAreaController::class, 'settings'])->name('settings');
+    Route::patch('/settings', [BudgetAreaController::class, 'updateSettings']);
+    Route::delete('/settings', [BudgetAreaController::class, 'destroyBudget']);
+    // Version 2 Search and jump (W4): the names to look through; matching happens in the browser.
+    Route::get('/search-index', [SearchController::class, 'index']);
+    // Version 2 Help (W18): guides, Contact us, Your messages.
+    Route::get('/help', [HelpController::class, 'show'])->name('help');
+    Route::post('/help/threads', [HelpController::class, 'start']);
+    Route::post('/help/threads/{thread}/messages', [HelpController::class, 'reply'])->whereNumber('thread');
+    Route::post('/help/threads/{thread}/close', [HelpController::class, 'close'])->whereNumber('thread');
+    Route::get('/help/attachments/{attachment}', [HelpController::class, 'attachment'])->whereNumber('attachment')->name('help.attachment');
+    // Version 2 Analytics (W15).
+    Route::get('/analytics', [AnalyticsController::class, 'show'])->name('analytics');
+    // Version 2 Automatic (W14).
+    Route::get('/automatic', [AutomaticController::class, 'show'])->name('automatic');
+    Route::post('/automatic', [AutomaticController::class, 'store']);
+    Route::patch('/automatic/{item}', [AutomaticController::class, 'update'])->whereNumber('item');
+    Route::delete('/automatic/{item}', [AutomaticController::class, 'destroy'])->whereNumber('item');
+    Route::post('/automatic/{item}/{action}', [AutomaticController::class, 'toggle'])->whereNumber('item')->whereIn('action', ['pause', 'resume']);
+    Route::post('/automatic/{item}/runs/{run}/{action}', [AutomaticController::class, 'run'])->whereNumber(['item', 'run'])->whereIn('action', ['approve', 'run-now', 'skip']);
+    // Version 2 Allocate (W8): staged in the browser, sent together.
+    Route::get('/allocate', [AllocateController::class, 'show'])->name('allocate');
+    Route::post('/allocate/{deposit}', [AllocateController::class, 'store'])->whereNumber('deposit');
+    Route::patch('/allocate/mode', [AllocateController::class, 'mode']);
     Route::get('/history', [HistoryController::class, 'show'])->name('history');
     // Search words and filters are posted and kept in the session, never put in the address.
     Route::post('/history', [HistoryController::class, 'filter']);
     Route::get('/history/receipt/{expense}', [HistoryController::class, 'receipt'])->whereNumber('expense')->name('history.receipt');
+    // Version 2 History (W10): more rows, changes, deletes with Undo, several at once, receipts, CSV.
+    Route::get('/history/rows', [HistoryController::class, 'rows']);
+    Route::get('/history/export', [HistoryController::class, 'export'])->name('history.export');
+    Route::patch('/history/{tab}/{id}', [HistoryController::class, 'update'])->whereIn('tab', ['spent', 'income', 'moved'])->whereNumber('id');
+    Route::post('/history/{tab}/delete', [HistoryController::class, 'destroy'])->whereIn('tab', ['spent', 'income', 'moved']);
+    Route::post('/history/spent/envelope', [HistoryController::class, 'moveEnvelope']);
+    Route::post('/history/receipt/{expense}', [HistoryController::class, 'storeReceipt'])->whereNumber('expense');
+    Route::delete('/history/receipt/{expense}', [HistoryController::class, 'destroyReceipt'])->whereNumber('expense');
     Route::get('/accounts', [AccountsController::class, 'show'])->name('accounts');
+    // Version 2 Accounts (W11); one investment account has its own page (W12).
+    Route::get('/investments/{account}', [AccountsController::class, 'investment'])->whereNumber('account')->name('investment');
+    Route::prefix('/investments/{account}')->whereNumber(['account', 'holding', 'valuation'])->group(function () {
+        Route::post('/holdings', [AccountsController::class, 'storeHolding']);
+        Route::patch('/holdings/{holding}', [AccountsController::class, 'updateHolding']);
+        Route::delete('/holdings/{holding}', [AccountsController::class, 'destroyHolding']);
+        Route::post('/values', [AccountsController::class, 'storeValues']);
+        Route::delete('/holdings/{holding}/values/{valuation}', [AccountsController::class, 'destroyValue']);
+        Route::post('/holdings/{holding}/move', [AccountsController::class, 'movePurpose']);
+        Route::put('/rate', [AccountsController::class, 'updateRate']);
+        Route::post('/money', [AccountsController::class, 'holdingMoney']);
+    });
+    Route::post('/accounts', [AccountsController::class, 'store']);
+    Route::patch('/accounts/{account}', [AccountsController::class, 'update'])->whereNumber('account');
+    Route::delete('/accounts/{account}', [AccountsController::class, 'destroy'])->whereNumber('account');
+    Route::post('/accounts/{account}/transactions', [AccountsController::class, 'transaction'])->whereNumber('account');
     Route::get('/recaps', [RecapController::class, 'show'])->name('recaps');
 
     Route::get('/account', [AccountController::class, 'show'])->name('account');

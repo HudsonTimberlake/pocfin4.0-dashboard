@@ -6,16 +6,17 @@ use App\Services\Api;
 use App\Services\Shell;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
 
 /** D7 Profile and security, and D10 Delete account. */
 class AccountController extends Controller
 {
     public function __construct(private Api $api) {}
 
-    public function show(): View
+    public function show(): Response
     {
-        return view('pages.account', ['sessions' => $this->api->json('/user/sessions')['data'] ?? []]);
+        return Inertia::render('Account', ['sessions' => $this->api->json('/user/sessions')['data'] ?? []]);
     }
 
     public function profile(Request $request): RedirectResponse
@@ -48,18 +49,17 @@ class AccountController extends Controller
         return back()->with('status', 'Signed out everywhere else.');
     }
 
-    public function showDelete(Shell $shell): View
+    public function showDelete(Shell $shell): Response
     {
         $subscription = $this->api->json('/subscription');
 
-        return view('pages.delete', [
-            'subscription' => $subscription,
-            'budgets' => $shell->budgets(),
+        return Inertia::render('DeleteAccount', [
+            'subscription' => ['active' => $subscription['active'] ?? false, 'store' => $subscription['store'] ?? null],
             'blocked' => session('delete_blocked'),
         ]);
     }
 
-    public function destroy(Request $request): RedirectResponse
+    public function destroy(Request $request): RedirectResponse|\Symfony\Component\HttpFoundation\Response
     {
         $request->validate(['password' => ['required', 'string'], 'understood' => ['accepted']], [
             'understood.accepted' => 'Tick the box to say you understand.',
@@ -76,6 +76,8 @@ class AccountController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('sign-in')->with('status', 'Your account has been deleted.');
+        session()->flash('status', 'Your account has been deleted.');
+
+        return leave(route('sign-in'));
     }
 }

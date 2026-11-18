@@ -12,11 +12,15 @@ class SignedIn
     public function handle(Request $request, Closure $next): Response
     {
         if (! $request->session()->has('api_token')) {
-            return redirect()->guest(route('sign-in'));
+            if ($request->isMethod('GET') && ! $request->expectsJson()) {
+                $request->session()->put('url.intended', $request->fullUrl());
+            }
+
+            return leave(route('sign-in'));
         }
 
         if ($request->session()->has('pending_code')) {
-            return redirect()->route('code');
+            return leave(route('code'));
         }
 
         return $next($request);

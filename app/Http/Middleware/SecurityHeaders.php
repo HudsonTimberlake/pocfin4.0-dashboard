@@ -4,16 +4,22 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Vite;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
  * A signed-in financial view on the open web: never cached, never framed, scripts only from this
- * site (Alpine's CSP build, so no eval), no outside requests, and HTTPS remembered.
+ * site (Alpine's CSP build and React, so no eval; inline scripts only with this page's nonce), no outside requests, and HTTPS remembered.
  */
 class SecurityHeaders
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // A fresh nonce per page for the few inline scripts we write ourselves (the appearance
+        // check, and Vite's React refresh locally). Vite adds it to its own tags too.
+        Vite::useCspNonce();
+        $nonce = Vite::cspNonce();
+
         $response = $next($request);
 
         // Vite's dev server, locally only.
@@ -21,7 +27,7 @@ class SecurityHeaders
 
         $response->headers->set('Content-Security-Policy', implode('; ', [
             "default-src 'self'",
-            "script-src 'self'".$dev,
+            "script-src 'self' 'nonce-$nonce'".$dev,
             // Bar widths are inline style attributes.
             "style-src 'self' 'unsafe-inline'".$dev,
             "img-src 'self' data: blob:",

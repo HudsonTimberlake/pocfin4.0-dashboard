@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
 /** Every page renders from the API's real response shapes, and shows money as rand. */
@@ -90,28 +91,60 @@ class PagesTest extends TestCase
     {
         $this->fakeBudget();
 
+        // Version 2: the page is React (Inertia). The server hands it the figures as the API sent them.
         $this->signedIn()->get('/')->assertOk()
-            ->assertSee('R8,420<span class="cents">.50</span>', false)
-            ->assertSee('R1,250')
-            ->assertSee('From Salary')
-            ->assertSee('6 weeks in a row')
-            ->assertSee('Eating out is over by R180.40')
-            ->assertSee('+R349.00')
-            ->assertSee('R196,610.62')
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('Overview')
+                ->where('summary.left_to_spend', '8420.50')
+                ->where('summary.unallocated', '1250.00')
+                ->where('left_from.note', 'Salary')
+                ->where('streak.current', 6)
+                ->where('summary.overspent.0.name', 'Eating out')
+                ->where('expenses.1.refund', true)
+                ->where('accounts.1.gain', '12410.55')
+                ->where('budgets.0.initials', 'OH')
+                ->where('me.isAdmin', false)
+                ->has('daysLeft')
+                ->missing('token'))
             ->assertDontSee('1|secret-token');
 
         Http::assertSent(fn (Request $r) => $r->hasHeader('Authorization', 'Bearer 1|secret-token') && $r->hasHeader('X-Timezone', 'Africa/Johannesburg'));
     }
 
-    public function test_budget_table_and_the_chosen_envelope(): void
+    public function test_a_react_visit_to_a_blade_page_loads_it_in_full(): void
+    {
+        // Not signed in: an Inertia visit gets a location answer, so the browser loads sign-in in full.
+        $version = app(\App\Http\Middleware\HandleInertiaRequests::class)->version(request());
+        $this->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => (string) $version])->get('/')->assertStatus(409)->assertHeader('X-Inertia-Location', route('sign-in'));
+    }
+
+    public function test_the_appearance_cookie_sets_the_theme_and_a_script_nonce(): void
+    {
+        $this->fakeBudget();
+
+        $response = $this->signedIn()->withUnencryptedCookie('appearance', 'dark')->get('/')->assertOk();
+        $response->assertSee('data-theme="dark"', false);
+        $this->assertMatchesRegularExpression("/script-src 'self' 'nonce-[A-Za-z0-9]+'/", $response->headers->get('Content-Security-Policy'));
+    }
+
+    public function test_budget_is_react_with_the_chosen_envelopes_activity(): void
     {
         $this->fakeBudget();
 
         $this->signedIn()->get('/budget?envelope=1')->assertOk()
-            ->assertSee('Everyday')->assertSee('Saving up')
-            ->assertSee('−R180.40')
-            ->assertSee('R4,508.65')
-            ->assertSee('Allocated');
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('Budget')
+                ->where('open_id', 1)
+                ->where('envelopes.0.spent_this_cycle', '4508.65')
+                ->has('activity', 3)
+                ->where('activity.0.kind', 'spent')
+                ->where('activity.2.kind', 'allocated')
+                ->where('shared', true)
+                ->where('summary.unallocated', fn ($v) => is_string($v)));
+
+        // Without ?envelope= the panel stays closed (the API still picks one for itself).
+        $this->signedIn()->get('/budget')->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page->component('Budget')->where('open_id', null)->has('activity', 0));
     }
 
     public function test_history_search_never_goes_in_the_address(): void
@@ -121,23 +154,42 @@ class PagesTest extends TestCase
         $this->signedIn()->post('/history', ['q' => 'shop', 'tab' => 'spent'])->assertRedirect('/history?tab=spent');
         $this->assertSame(['q' => 'shop'], session('history_filters'));
 
-        $this->get('/history?tab=spent')->assertOk()->assertSee('30 found')->assertSee('Refund')->assertSee('Open receipt photo')->assertSee('Older');
-        Http::assertSent(fn (Request $r) => str_contains($r->url(), '/dashboard/budgets/3/history') && ($r->data()['q'] ?? null) === 'shop' && ($r->data()['tab'] ?? null) === 'spent');
+        $this->get('/history?tab=spent')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('History')
+            ->where('tab', 'spent')
+            ->where('filters.q', 'shop')
+            ->where('filters.order', 'newest')
+            ->where('list.page', 1)
+            ->has('envelopes')->has('members'));
+        Http::assertSent(fn (Request $r) => str_contains($r->url(), '/dashboard/budgets/3/history') && ($r->data()['q'] ?? null) === 'shop' && ($r->data()['tab'] ?? null) === 'spent' && (int) ($r->data()['per_page'] ?? 0) === 50);
 
-        $this->get('/history?tab=income')->assertOk()->assertSee('Salary');
-        $this->get('/history?tab=moved')->assertOk()->assertSee('Holiday → Long-term investments');
+        $this->get('/history?tab=income')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page->where('tab', 'income'));
+        $this->get('/history?tab=moved')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page->where('tab', 'moved'));
     }
 
-    public function test_accounts_with_returns(): void
+    public function test_accounts_is_react_and_an_investment_has_its_own_page(): void
     {
         $this->fakeBudget();
 
-        $this->signedIn()->get('/accounts')->assertOk()
-            ->assertSee('S&amp;P 500 ETF', false)
-            ->assertSee('12.40%')
-            ->assertSee('+R12,410.55')
-            ->assertSee('Retirement')
-            ->assertSee('Interest');
+        $this->signedIn()->get('/accounts')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Accounts')
+            ->has('accounts', 2)
+            ->where('accounts.0.mine', true)
+            ->where('purposes.0.name', 'Retirement')
+            ->where('open_id', null)
+            ->has('moves', 0));
+
+        // A savings account opens beside the tiles; an investment goes to its own page.
+        $this->get('/accounts?account=11')->assertInertia(fn (AssertableInertia $page) => $page->where('open_id', 11));
+        $this->get('/accounts?account=12')->assertRedirect(route('investment', ['account' => 12]));
+        $this->get('/investments/12')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Investment')
+            ->where('account.id', 12)
+            ->where('holdings.0.name', 'S&P 500 ETF')
+            ->where('returns.21.time_weighted_return', '12.40')
+            ->where('period', 'ytd'));
+        // A savings account isn't an investment page.
+        $this->get('/investments/11')->assertNotFound();
     }
 
     public function test_recaps(): void
@@ -153,12 +205,14 @@ class PagesTest extends TestCase
             ]]),
         ]);
 
-        $this->signedIn()->get('/recaps')->assertOk()
-            ->assertSee('You kept more than you spent')
-            ->assertSee('8 of 10 envelopes')
-            ->assertSee('−R140.00')
-            ->assertSee('2 older recaps with Premium')
-            ->assertSee('Who recorded what');
+        $this->signedIn()->get('/recaps')->assertOk()->assertInertia(fn (AssertableInertia $p) => $p
+            ->component('Recaps')
+            ->where('lockedCount', 2)
+            ->where('start', '2026-10-01')
+            ->where('recap.kept', '3929.60')
+            ->where('recap.within_budget.count', 8)
+            ->where('recap.envelopes.0.balance_end', '-140.00')
+            ->has('recap.transactions.by_member', 2));
     }
 
     public function test_account_and_delete(): void
@@ -173,11 +227,13 @@ class PagesTest extends TestCase
             'api.test/api/user' => Http::response(['message' => 'x', 'errors' => ['user' => ['Make another member the owner of Our home first.']]], 422),
         ]);
 
-        $this->signedIn()->get('/account')->assertOk()->assertSee('This browser')->assertSee('PocFin app · iPhone 16');
-        $this->get('/account/delete')->assertOk()->assertSee('Your subscription doesn’t stop by itself');
+        $this->signedIn()->get('/account')->assertOk()->assertInertia(fn (AssertableInertia $p) => $p
+            ->component('Account')->where('sessions.0.current', true)->where('sessions.1.name', 'iPhone 16'));
+        $this->get('/account/delete')->assertOk()->assertInertia(fn (AssertableInertia $p) => $p
+            ->component('DeleteAccount')->where('subscription.active', true)->where('subscription.store', 'app_store')->where('blocked', null));
 
         $this->from('/account/delete')->post('/account/delete', ['password' => 'secret', 'understood' => '1'])->assertRedirect('/account/delete');
-        $this->get('/account/delete')->assertSee('Make another member the owner of Our home first.');
+        $this->get('/account/delete')->assertInertia(fn (AssertableInertia $p) => $p->where('blocked', 'Make another member the owner of Our home first.'));
         $this->assertNotNull(session('api_token'));
     }
 
@@ -204,9 +260,36 @@ class PagesTest extends TestCase
             'api.test/api/referrals' => Http::response(['code' => 'THANDI4', 'link' => 'https://pocfin.com/r/THANDI4', 'months' => 1, 'max_months_ahead' => 12, 'budget' => ['id' => 3, 'name' => 'Our home'], 'months_earned' => 1, 'friends' => [['name' => 'Sipho', 'joined_at' => '2026-10-31', 'rewarded' => true]]]),
         ]);
 
-        $this->signedIn()->get('/premium')->assertOk()
-            ->assertSee('Yearly · R399.99 a year')->assertSee('16')->assertSee('Manage in the App Store')
-            ->assertSee('R399.99')->assertSee('Sipho joined with a code');
-        $this->get('/invite')->assertOk()->assertSee('THANDI4')->assertSee('Free month earned');
+        $this->signedIn()->get('/premium')->assertOk()->assertInertia(fn (AssertableInertia $p) => $p
+            ->component('Premium')
+            ->where('subscription.product', 'pocfin_premium_yearly')
+            ->where('events.months_paid', 16)
+            ->where('events.data.0.price', '399.99')
+            ->where('budgets.0.premium.history.0.from', 'Sipho')
+            ->where('manage.app_store', 'https://apps.apple.com/account/subscriptions'));
+        $this->get('/invite')->assertOk()->assertInertia(fn (AssertableInertia $p) => $p
+            ->component('Invite')->where('referrals.code', 'THANDI4')->where('referrals.friends.0.rewarded', true)->where('budgets.0.name', 'Our home'));
+    }
+
+    public function test_account_premium_and_invite_writes(): void
+    {
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        Http::fake([
+            'api.test/api/user' => Http::response(['name' => 'Thandi M', 'email' => 'thandi@example.com']),
+            'api.test/api/user/password' => Http::response(null, 204),
+            'api.test/api/user/sessions/others' => Http::response(null, 204),
+            'api.test/api/subscription/budgets' => Http::response(['ok' => true]),
+            'api.test/api/referrals/budget' => Http::response(['ok' => true]),
+        ]);
+
+        $this->signedIn()->from('/account')->post('/account/profile', ['name' => 'Thandi M'])->assertRedirect('/account');
+        $this->assertSame('Thandi M', session('user.name'));
+        $this->post('/account/password', ['current_password' => 'a', 'password' => 'new-secret-1', 'password_confirmation' => 'new-secret-1'])->assertRedirect();
+        $this->post('/account/password', ['current_password' => 'a', 'password' => 'x', 'password_confirmation' => 'y'])->assertSessionHasErrors('password');
+        $this->post('/account/sessions')->assertRedirect();
+        $this->post('/premium/covered', ['budget_ids' => [3]])->assertRedirect();
+        $this->post('/premium/covered', [])->assertSessionHasErrors('budget_ids');
+        $this->post('/invite/budget', ['budget_id' => 3])->assertRedirect();
+        Http::assertSent(fn (Request $r) => $r->method() === 'PUT' && str_ends_with($r->url(), '/subscription/budgets') && $r['budget_ids'] === [3]);
     }
 }
