@@ -630,6 +630,42 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)$#', $path, $m) && $method !== 'GE
     return $answer(['id' => (int) $m[1], 'name' => $state['bname'][(int) $m[1]], 'cycle_start_day' => $state['bday'][(int) $m[1]], 'role' => 'owner', 'premium' => ['active' => true, 'status' => 'premium', 'until' => '2027-03-02', 'forever' => false]]);
 }
 
+// Help (W18): the person's own support conversations.
+$state['threads'] ??= [
+    ['id' => 1, 'kind' => 'problem', 'subject' => 'Something’s not working', 'status' => 'answered', 'unread' => true, 'created_at' => date('c', strtotime('-6 days')),
+        'messages' => [['id' => 1, 'from_admin' => false, 'author' => 'You', 'body' => 'My October recap opened as September after I changed when my month starts.', 'attachments' => [], 'created_at' => date('c', strtotime('-6 days'))], ['id' => 2, 'from_admin' => true, 'author' => 'PocFin support', 'body' => 'Changing the start day keeps past recaps on their old dates, so October now sits under 25 Sep. We’ve made the name clearer in the next update.', 'attachments' => [], 'created_at' => date('c', strtotime('-5 days'))]]],
+    ['id' => 2, 'kind' => 'question', 'subject' => 'A question', 'status' => 'closed', 'unread' => false, 'created_at' => date('c', strtotime('-16 days')),
+        'messages' => [['id' => 3, 'from_admin' => false, 'author' => 'You', 'body' => 'Can I export to Excel?', 'attachments' => [], 'created_at' => date('c', strtotime('-16 days'))]]],
+];
+$threadItem = fn (array $t) => ['id' => $t['id'], 'kind' => $t['kind'], 'subject' => $t['subject'], 'status' => $t['status'], 'preview' => $t['messages'][0]['body'], 'last_from_admin' => end($t['messages'])['from_admin'], 'unread' => $t['unread'], 'last_message_at' => end($t['messages'])['created_at'], 'created_at' => $t['created_at']];
+if ($path === '/api/dashboard/help') {
+    $asked = (int) ($_GET['thread'] ?? 0); $sel = null;
+    foreach ($state['threads'] as $k => $t) { if ($t['id'] === $asked) { $state['threads'][$k]['unread'] = false; $sel = $state['threads'][$k]; $save(); } }
+    $items = array_map($threadItem, $state['threads']);
+    return $answer(['data' => $items, 'unread' => count(array_filter($items, fn ($t) => $t['unread'])), 'selected' => $sel ? $threadItem($sel) + ['messages' => $sel['messages']] : null]);
+}
+$in = $_POST + $body;
+if (preg_match('#^/api/dashboard/support/threads(/(\d+)/(messages|close))?$#', $path, $m) && $method === 'POST') {
+    $labels = ['problem' => 'Something’s not working', 'question' => 'A question', 'idea' => 'An idea', 'account' => 'Account or Premium'];
+    $msg = fn () => ['id' => ++$state['seq'], 'from_admin' => false, 'author' => 'You', 'body' => trim($in['body'] ?? ''), 'attachments' => [], 'created_at' => date('c')];
+    if (empty($m[1])) {
+        if (trim($in['body'] ?? '') === '') { return $fail('body', 'Write a message first.'); }
+        $state['threads'][] = ['id' => ++$state['seq'], 'kind' => $in['kind'], 'subject' => $labels[$in['kind']] ?? 'A question', 'status' => 'open', 'unread' => false, 'created_at' => date('c'), 'messages' => [$msg()]];
+        $t = end($state['threads']); $save();
+        return $answer($threadItem($t) + ['messages' => $t['messages']], 201);
+    }
+    foreach ($state['threads'] as $k => $t) {
+        if ($t['id'] !== (int) $m[2]) { continue; }
+        if ($m[3] === 'close') { $state['threads'][$k]['status'] = 'closed'; } else {
+            if (trim($in['body'] ?? '') === '') { return $fail('body', 'Write a message first.'); }
+            $state['threads'][$k]['messages'][] = $msg(); $state['threads'][$k]['status'] = 'open';
+        }
+        $save(); $t = $state['threads'][$k];
+        return $answer($threadItem($t) + ['messages' => $t['messages']], $m[3] === 'close' ? 200 : 201);
+    }
+    return $answer(['message' => 'Not found.'], 404);
+}
+
 // Analytics (W15): this month from the sample's figures; trends and insights as the boards show them.
 if (preg_match('#^/api/dashboard/budgets/(\d+)/analytics$#', $path, $m)) {
     $tab = $_GET['tab'] ?? 'month';

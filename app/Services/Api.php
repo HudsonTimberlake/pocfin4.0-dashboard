@@ -84,6 +84,26 @@ class Api
         return $this->send(fn () => $this->request()->attach($field, $file->get(), $file->getClientOriginalName())->post($path), 'POST '.$path);
     }
 
+    /**
+     * A POST with form fields and several files (support screenshots): `images[0]`, `images[1]`…
+     *
+     * @param  array<string, string>  $fields
+     * @param  list<UploadedFile>  $files
+     */
+    public function multipart(string $path, array $fields, array $files, string $name = 'images'): Response
+    {
+        $this->allow($path);
+
+        return $this->send(function () use ($path, $fields, $files, $name) {
+            $request = $this->request();
+            foreach ($files as $i => $file) {
+                $request = $request->attach("{$name}[{$i}]", $file->get(), $file->getClientOriginalName());
+            }
+
+            return $request->post($path, $fields);
+        }, 'POST '.$path);
+    }
+
     /** The JSON of a GET that must work. */
     public function json(string $path, array $query = []): array
     {

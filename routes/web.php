@@ -15,6 +15,7 @@ use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\EditEnvelopesController;
 use App\Http\Controllers\EnvelopeController;
 use App\Http\Controllers\GoalsController;
+use App\Http\Controllers\HelpController;
 use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\MoneyController;
@@ -89,6 +90,12 @@ Route::middleware(['signed.in', 'idle'])->group(function () {
     Route::get('/settings', [BudgetAreaController::class, 'settings'])->name('settings');
     Route::patch('/settings', [BudgetAreaController::class, 'updateSettings']);
     Route::delete('/settings', [BudgetAreaController::class, 'destroyBudget']);
+    // Version 2 Help (W18): guides, Contact us, Your messages.
+    Route::get('/help', [HelpController::class, 'show'])->name('help');
+    Route::post('/help/threads', [HelpController::class, 'start']);
+    Route::post('/help/threads/{thread}/messages', [HelpController::class, 'reply'])->whereNumber('thread');
+    Route::post('/help/threads/{thread}/close', [HelpController::class, 'close'])->whereNumber('thread');
+    Route::get('/help/attachments/{attachment}', [HelpController::class, 'attachment'])->whereNumber('attachment')->name('help.attachment');
     // Version 2 Analytics (W15).
     Route::get('/analytics', [AnalyticsController::class, 'show'])->name('analytics');
     // Version 2 Automatic (W14).
