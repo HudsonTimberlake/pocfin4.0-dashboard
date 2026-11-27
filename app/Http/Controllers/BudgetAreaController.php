@@ -129,7 +129,7 @@ class BudgetAreaController extends Controller
 
     public function updateSettings(Request $request): JsonResponse
     {
-        $data = $request->validate(['name' => ['sometimes', 'string', 'max:100'], 'cycle_start_day' => ['sometimes', 'integer', 'between:1,28']]);
+        $data = $request->validate(['name' => ['sometimes', 'string', 'max:100'], 'cycle_start_day' => ['sometimes', 'integer', 'between:1,28'], 'currency' => ['sometimes', 'string', 'size:3']]);
         $budget = $this->ok($this->api->patch($this->path(), $data))->json();
         session()->forget('budgets_cache');
 

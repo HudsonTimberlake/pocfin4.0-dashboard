@@ -1,5 +1,5 @@
 // What every version 2 page gets from HandleInertiaRequests.
-export type Budget = { id: number; name: string; initials: string; role: string; premium: boolean; paused: boolean };
+export type Budget = { id: number; name: string; currency: string; initials: string; role: string; premium: boolean; paused: boolean };
 
 export type Shared = {
     me: { name: string; email: string; isAdmin: boolean } | null;

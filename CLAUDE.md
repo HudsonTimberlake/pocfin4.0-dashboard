@@ -32,7 +32,7 @@ The web view of PocFin: people sign in with their app account and see their budg
 - Slow page? Set `DASHBOARD_LOG_TIMING=true` in `.env` (and `php artisan config:clear`): `storage/logs/laravel.log` then gets one `api` line per call with its milliseconds. Turn it off again afterwards.
 
 ## Tests
-`php artisan test` (85 tests, the API faked with `Http::fake`, `Http::preventStrayRequests`). Build assets with `npm run build`; type-check with `npx tsc --noEmit`. To look at pages without a real account: the `dashboard-fake-api` and `pocfin-dashboard-sample` entries in `../.claude/launch.json` serve sample figures (`scripts/fake-api.php`) on port 8021; any sign-in works, so no real account is needed.
+`php artisan test` (90 tests, the API faked with `Http::fake`, `Http::preventStrayRequests`). Build assets with `npm run build`; type-check with `npx tsc --noEmit`. To look at pages without a real account: the `dashboard-fake-api` and `pocfin-dashboard-sample` entries in `../.claude/launch.json` serve sample figures (`scripts/fake-api.php`) on port 8021; any sign-in works, so no real account is needed.
 
 ## Server
 A Laravel app on the `dashboard.pocfin.com` subdomain (HostAfrica), document root `public/`. `.env`: `APP_URL=https://dashboard.pocfin.com`, `APP_ENV=production`, `APP_DEBUG=false`, `POCFIN_API_URL=https://api.pocfin.com/api`, `DASHBOARD_KEY` (the same value as the API's), `SESSION_SECURE_COOKIE=true`, `SESSION_DRIVER=file`, `SESSION_LIFETIME=720`, `SESSION_ENCRYPT=true`, and leave `SESSION_DOMAIN` empty (the cookie stays on the subdomain).
@@ -63,3 +63,6 @@ Recaps, Premium, Invite, Account (profile, password, sessions) and DeleteAccount
 
 ## Admin devices and lock (2026-11-18)
 The admin user page (`resources/views/admin/user.blade.php`) has **Devices and access**: their sign-ins, and one form whose buttons post `do` = `device:{id}`, `all`, `lock` or `unlock` with the admin's password and a note to `POST /admin/users/{u}/access` (`Admin\UserController::access`), which calls the API's matching admin path. Hidden for an admin's own account and other admins (the API refuses them too). Locked accounts show a red Locked chip on the page and in the users list.
+
+## Desktop app (PWA, 2026-11-27)
+Installable from Chrome and Edge (Windows, Mac) and Safari on a Mac (File › Add to Dock): its own window from the Dock, Start menu or taskbar. `public/manifest.webmanifest`, icons in `public/icons/` (made from `../pocfin4.0-web/public/images/app-icon.png`), head tags in `views/partials/app-head.blade.php` (React root and both Blade layouts). `public/sw.js` caches nothing and has no fetch handler: it only meets install rules, so `no-store` and the idle lock work as in a tab. The CSP needed no change (manifest and worker fall back to `'self'`). "Install desktop app" in the account menu and a card on Help's Guides tab (`components/InstallApp.tsx`, `lib/install.ts`): Chrome/Edge's own prompt when it fires, short steps otherwise; hidden when running installed (`display-mode: standalone`) and on phones.

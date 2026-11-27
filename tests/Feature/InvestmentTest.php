@@ -30,7 +30,7 @@ class InvestmentTest extends TestCase
             'api.test/api/dashboard/budgets/3/accounts/12/holdings/21' => Http::response(['id' => 21, 'name' => 'S&P 500']),
             'api.test/api/dashboard/budgets/3/accounts/12/valuations' => Http::response(['saved' => 2], 201),
             'api.test/api/dashboard/budgets/3/accounts/12/holdings/21/valuations/90' => Http::response(null, 204),
-            'api.test/api/dashboard/budgets/3/accounts/12/rate' => Http::response(['id' => 12, 'usd_rate' => '18.5000']),
+            'api.test/api/dashboard/budgets/3/accounts/12/rate' => Http::response(['id' => 12, 'rate' => '18.5000']),
         ]);
         $from = fn () => $this->signedIn()->from('/investments/12');
 

@@ -9,6 +9,7 @@ import type { AddOpen, AddTab } from '@/lib/app';
 import { formatMoney, isNegative } from '@/lib/format';
 import { ARRIVE } from '@/lib/motion';
 import type { Envelope, Shared } from '@/types';
+import { homeSymbol } from '@/shared/currency';
 
 type Account = { id: number; name: string; type: string; balance: string };
 type Options = { envelopes: Envelope[]; accounts: Account[]; envelope_use: { envelope_id: number; uses: number }[] };
@@ -234,14 +235,14 @@ export default function AddPanel({ open, start, onClose }: { open: boolean; star
                             <label className="block">
                                 <span className="block text-[13.5px] font-bold text-slate">Amount</span>
                                 <span className={`mt-1 flex items-baseline gap-1.5 border-b-2 pb-1.5 transition-colors ${hasAmount(typed) ? 'border-mint' : 'border-line'}`}>
-                                    <span className={`text-[40px] font-extrabold ${hasAmount(typed) ? 'text-ink' : 'text-muted'}`}>R</span>
+                                    <span className={`text-[40px] font-extrabold ${hasAmount(typed) ? 'text-ink' : 'text-muted'}`}>{homeSymbol()}</span>
                                     <input
                                         ref={amountRef}
                                         value={typed}
                                         onChange={(e) => setTyped(cleanTyped(e.target.value))}
                                         inputMode="decimal"
                                         placeholder="0.00"
-                                        aria-label="Amount in rand"
+                                        aria-label="Amount"
                                         className="num min-w-0 flex-1 bg-transparent p-0 text-[48px] leading-[56px] font-extrabold tracking-[-0.03em] text-ink outline-none placeholder:text-muted"
                                     />
                                 </span>

@@ -19,6 +19,26 @@ class SecurityTest extends TestCase
         $this->assertStringNotContainsString('unsafe-eval', $response->headers->get('Content-Security-Policy'));
     }
 
+    public function test_it_can_be_installed_as_a_desktop_app_from_sign_in(): void
+    {
+        $this->get('/sign-in')->assertOk()
+            ->assertSee('<link rel="manifest" href="/manifest.webmanifest">', false)
+            ->assertSee('<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">', false);
+
+        $manifest = json_decode(file_get_contents(public_path('manifest.webmanifest')), true);
+        $this->assertSame('standalone', $manifest['display']);
+        $this->assertSame('/', $manifest['start_url']);
+        foreach ($manifest['icons'] as $icon) {
+            $this->assertFileExists(public_path(ltrim($icon['src'], '/')));
+        }
+        $this->assertContains('maskable', array_column($manifest['icons'], 'purpose'));
+
+        // The worker only meets install rules: it must never answer requests or keep money data.
+        $worker = file_get_contents(public_path('sw.js'));
+        $this->assertStringNotContainsString("'fetch'", $worker);
+        $this->assertStringNotContainsString('caches.', $worker);
+    }
+
     public function test_it_locks_after_fifteen_minutes_without_use(): void
     {
         $this->signedIn(session: ['last_activity' => time() - 16 * 60])->get('/budget')->assertRedirect('/lock');

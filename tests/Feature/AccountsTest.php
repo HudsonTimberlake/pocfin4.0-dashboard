@@ -30,18 +30,18 @@ class AccountsTest extends TestCase
             ->push(['id' => 15, 'name' => 'Offshore', 'type' => 'investment'], 201)]);
 
         $this->signedIn()->post('/accounts', ['name' => 'Holiday', 'type' => 'holding', 'visibility' => 'private'])->assertRedirect('/accounts?account=14');
-        $this->signedIn()->post('/accounts', ['name' => 'Offshore', 'type' => 'investment', 'visibility' => 'shared', 'currency' => 'USD', 'usd_rate' => '18.25'])
+        $this->signedIn()->post('/accounts', ['name' => 'Offshore', 'type' => 'investment', 'visibility' => 'shared', 'currency' => 'EUR', 'rate' => '19.80'])
             ->assertRedirect(route('investment', ['account' => 15]));
 
-        Http::assertSent(fn (Request $r) => $r->method() === 'POST' && str_ends_with($r->url(), '/accounts') && ($r->data()['currency'] ?? null) === 'USD' && ($r->data()['usd_rate'] ?? null) === '18.25');
-        Http::assertSent(fn (Request $r) => $r->method() === 'POST' && str_ends_with($r->url(), '/accounts') && ($r->data()['visibility'] ?? null) === 'private' && ! array_key_exists('usd_rate', $r->data()));
+        Http::assertSent(fn (Request $r) => $r->method() === 'POST' && str_ends_with($r->url(), '/accounts') && ($r->data()['currency'] ?? null) === 'EUR' && ($r->data()['rate'] ?? null) === '19.80');
+        Http::assertSent(fn (Request $r) => $r->method() === 'POST' && str_ends_with($r->url(), '/accounts') && ($r->data()['visibility'] ?? null) === 'private' && ! array_key_exists('rate', $r->data()));
     }
 
     public function test_the_apis_rules_come_back_to_the_form(): void
     {
         $this->fake(['api.test/api/dashboard/budgets/3/accounts' => Http::response(['message' => 'x', 'errors' => ['currency' => ['Only an investment account can be in dollars.']]], 422)]);
 
-        $this->signedIn()->from('/accounts')->post('/accounts', ['name' => 'Savings', 'type' => 'savings', 'visibility' => 'shared', 'currency' => 'USD', 'usd_rate' => '18'])
+        $this->signedIn()->from('/accounts')->post('/accounts', ['name' => 'Savings', 'type' => 'savings', 'visibility' => 'shared', 'currency' => 'USD', 'rate' => '18'])
             ->assertSessionHasErrors(['currency' => 'Only an investment account can be in dollars.']);
     }
 

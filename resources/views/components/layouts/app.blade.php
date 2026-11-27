@@ -7,6 +7,7 @@
     <meta name="robots" content="noindex, nofollow">
     <title>{{ $title }} · PocFin</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    @include('partials.app-head')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body data-idle-minutes="{{ $admin ? config('dashboard.admin_idle_minutes') : config('dashboard.idle_minutes') }}">

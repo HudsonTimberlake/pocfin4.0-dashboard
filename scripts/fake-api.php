@@ -376,7 +376,7 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts/(\d+)/rate$#', $path, $m
     unset($h);
     $state['accounts'][$i]['usd_rate'] = number_format($r, 4, '.', ''); $state['accounts'][$i]['rate_updated_at'] = date('c');
     $resum(); $save();
-    return $answer(['id' => (int) $m[2], 'usd_rate' => $state['accounts'][$i]['usd_rate']]);
+    return $answer(['id' => (int) $m[2], 'rate' => $state['accounts'][$i]['usd_rate'], 'usd_rate' => $state['accounts'][$i]['usd_rate']]);
 }
 if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts/(\d+)/holdings$#', $path, $m) && $method === 'POST') {
     if (trim((string) ($body['name'] ?? '')) === '') { return $fail('name', 'The name field is required.'); }
@@ -444,7 +444,7 @@ $spent = array_sum(array_column($state['envelopes'], 'spent'));
 $byId = array_column($state['envelopes'], null, 'id');
 $top = array_values(array_filter($state['envelopes'], fn ($e) => $e['spent'] > 0 && $e['name'] !== 'Rent' && $e['name'] !== 'Phone and internet'));
 usort($top, fn ($a, $b) => $b['spent'] <=> $a['spent']);
-$accounts = array_map(fn ($a) => ['id' => $a['id'], 'name' => $a['name'], 'type' => $a['type'], 'visibility' => $a['visibility'] ?? ($a['id'] === 12 ? 'private' : 'shared'), 'created_by' => 7, 'currency' => $a['currency'] ?? 'ZAR', 'usd_rate' => $a['usd_rate'] ?? null, 'rate_updated_at' => $a['rate_updated_at'] ?? null, 'simple_return' => $a['type'] === 'investment' && $a['balance'] ? number_format(($a['value'] - $a['balance']) / $a['balance'] * 100, 2, '.', '') : null, 'balance' => $s($a['balance']), 'value' => isset($a['value']) ? $s($a['value']) : null, 'gain' => $a['gain']], $state['accounts']);
+$accounts = array_map(fn ($a) => ['id' => $a['id'], 'name' => $a['name'], 'type' => $a['type'], 'visibility' => $a['visibility'] ?? ($a['id'] === 12 ? 'private' : 'shared'), 'created_by' => 7, 'currency' => $a['currency'] ?? 'ZAR', 'rate' => $a['usd_rate'] ?? null, 'usd_rate' => $a['usd_rate'] ?? null, 'rate_updated_at' => $a['rate_updated_at'] ?? null, 'simple_return' => $a['type'] === 'investment' && $a['balance'] ? number_format(($a['value'] - $a['balance']) / $a['balance'] * 100, 2, '.', '') : null, 'balance' => $s($a['balance']), 'value' => isset($a['value']) ? $s($a['value']) : null, 'gain' => $a['gain']], $state['accounts']);
 $total = array_sum(array_map(fn ($a) => $a['value'] ?? $a['balance'], $state['accounts']));
 
 $overview = [
@@ -843,9 +843,9 @@ if (preg_match('#^/api/dashboard/budgets/(\d+)/accounts$#', $path)) {
             $out = ['holdings' => [], 'returns' => [], 'valuations' => []];
             foreach (array_filter($state['holdings'], fn ($h) => $h['account_id'] === $sel) as $h) {
                 $v = array_sum(array_column($h['pos'], 1)); $put = array_sum(array_column($h['pos'], 2));
-                $out['holdings'][] = ['id' => $h['id'], 'account_id' => $sel, 'name' => $h['name'], 'value' => $s($v), 'usd_rate' => $acc['usd_rate'] ?? null, 'value_usd' => $usd($v),
-                    'last_valuation' => $h['vals'] ? ['date' => $h['vals'][0][0], 'value' => $s($h['vals'][0][1]), 'value_usd' => $usd($h['vals'][0][1])] : null,
-                    'positions' => array_map(fn ($p) => ['id' => $p[0] * 100 + $h['id'], 'purpose_id' => $p[0], 'purpose' => $state['purposes'][$p[0]] ?? 'Purpose', 'value' => $s($p[1]), 'value_usd' => $usd($p[1])], $h['pos'])];
+                $out['holdings'][] = ['id' => $h['id'], 'account_id' => $sel, 'name' => $h['name'], 'value' => $s($v), 'currency' => $acc['currency'] ?? 'ZAR', 'rate' => $acc['usd_rate'] ?? null, 'value_foreign' => $usd($v), 'usd_rate' => $acc['usd_rate'] ?? null, 'value_usd' => $usd($v),
+                    'last_valuation' => $h['vals'] ? ['date' => $h['vals'][0][0], 'value' => $s($h['vals'][0][1]), 'value_foreign' => $usd($h['vals'][0][1]), 'value_usd' => $usd($h['vals'][0][1])] : null,
+                    'positions' => array_map(fn ($p) => ['id' => $p[0] * 100 + $h['id'], 'purpose_id' => $p[0], 'purpose' => $state['purposes'][$p[0]] ?? 'Purpose', 'value' => $s($p[1]), 'value_foreign' => $usd($p[1]), 'value_usd' => $usd($p[1])], $h['pos'])];
                 $out['returns'][$h['id']] = ['holding_id' => $h['id'], 'net_contributed' => $s($put), 'value' => $s($v), 'gain' => $s($v - $put), 'simple_return' => $put > 0 ? number_format(($v - $put) / $put * 100, 2, '.', '') : null, 'time_weighted_return' => $h['twr'][$period] ?? null,
                     'positions' => array_map(fn ($p) => ['purpose_id' => $p[0], 'net_contributed' => $s($p[2]), 'value' => $s($p[1]), 'gain' => $s($p[1] - $p[2]), 'simple_return' => $p[2] > 0 ? number_format(($p[1] - $p[2]) / $p[2] * 100, 2, '.', '') : null], $h['pos'])];
                 $out['valuations'][$h['id']] = array_map(fn ($x, $i) => ['id' => $h['id'] * 1000 + count($h['vals']) - $i, 'date' => $x[0], 'value' => $s($x[1]), 'foreign_value' => $usd($x[1]), 'rate' => $acc['usd_rate'] ?? null, 'created_by' => 7, 'deletable' => $i === 0], array_slice($h['vals'], 0, 12), array_keys(array_slice($h['vals'], 0, 12)));

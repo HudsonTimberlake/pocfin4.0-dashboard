@@ -34,7 +34,7 @@ export const HELP = {
       },
       {
         heading: "All your money",
-        body: "Left to spend and Ready to allocate, plus your savings, holding and investment accounts. Together they make the total at the top of that card. Each rand is counted once, so moving money between envelopes and accounts never changes it. Spending from an account lowers it. Investments count what they are worth today, not what you put in.",
+        body: "Left to spend and Ready to allocate, plus your savings, holding and investment accounts. Together they make the total at the top of that card. Each amount is counted once, so moving money between envelopes and accounts never changes it. Spending from an account lowers it. Investments count what they are worth today, not what you put in.",
       },
       {
         heading: "Private accounts",
@@ -321,15 +321,15 @@ export const HELP = {
   "update-rate": {
     title: "Update the rate",
     intro:
-      "A dollar account keeps one rate: how many rand one dollar is worth. Every holding in it follows.",
+      "An account in another currency keeps one rate: what one unit of its currency is worth in your budget's. Every holding in it follows.",
     sections: [
       {
         heading: "What changes",
-        body: "Each holding is worth the same number of dollars, so its rand value moves with the rate. No money moves.",
+        body: "Each holding is worth the same in its own currency, so its value in your budget's currency moves with the rate. No money moves.",
       },
       {
         heading: "Growth and loss",
-        body: "The change counts as growth or loss in rand, because that is what your money is worth to you.",
+        body: "The change counts as growth or loss in your budget's currency, because that is what your money is worth to you.",
       },
     ],
   },
@@ -934,7 +934,7 @@ export const HELP = {
     sections: [
       {
         heading: "Who can change it",
-        body: "Only the owner. Everyone else can see the settings. PocFin works in rand for now.",
+        body: "Only the owner. Everyone else can see the settings. The currency can change only before any money is added: after that the amounts already saved would mean something else.",
       },
     ],
   },

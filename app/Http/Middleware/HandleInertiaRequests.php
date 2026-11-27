@@ -29,6 +29,8 @@ class HandleInertiaRequests extends Middleware
             'budgets' => fn () => $signedIn ? array_map(fn (array $b) => [
                 'id' => $b['id'],
                 'name' => $b['name'],
+                // Every amount in the budget is in it (design/currencies.md); Shell sets it before pages render.
+                'currency' => $b['currency'] ?? 'ZAR',
                 'initials' => Shell::initials($b['name']),
                 'role' => $b['role'] ?? 'member',
                 'premium' => (bool) ($b['premium']['active'] ?? false),

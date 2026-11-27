@@ -13,6 +13,7 @@ import { ARRIVE } from '@/lib/motion';
 import { budgetedHint, type FillMode } from '@/shared/fillHint';
 import { fromCents, subtractForHint } from '@/shared/money';
 import type { Envelope, Shared } from '@/types';
+import { homeSymbol } from '@/shared/currency';
 
 type Deposit = { id: number; amount: string; allocated: string; unallocated: string; date: string; note: string | null };
 type Account = { id: number; name: string; type: string; balance: string };
@@ -260,7 +261,7 @@ export default function Allocate(p: Props) {
             className="flex flex-wrap items-center gap-2 pb-3 sm:pl-[50px]"
         >
             <span className="relative w-[160px]">
-                <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">R</span>
+                <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">{homeSymbol()}</span>
                 <input autoFocus value={typed} onChange={(e) => setTyped(cleanTyped(e.target.value))} inputMode="decimal" placeholder="0.00" aria-label={`Amount for ${name}`} className="num h-10 w-full rounded-xl border border-line bg-card pr-3 pl-7 text-[15px] font-bold outline-none focus:border-mint" />
             </span>
             <button type="submit" disabled={!positive(toAmount(typed))} className="h-10 rounded-xl bg-mint px-3.5 text-[14px] font-extrabold text-on-mint disabled:opacity-60">

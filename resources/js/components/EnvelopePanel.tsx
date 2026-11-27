@@ -12,6 +12,7 @@ import { useApp, type AddTab } from '@/lib/app';
 import { dayLabel, formatMoney, isNegative, percent, toCents } from '@/lib/format';
 import { ENVELOPE_ICONS, iconKeyFor } from '@/shared/envelopeIcons';
 import type { BudgetEnvelope, Envelope } from '@/types';
+import { homeSymbol } from '@/shared/currency';
 
 export type Activity = { key: string; id: number; kind: 'spent' | 'refund' | 'allocated'; note: string | null; date: string; amount: string; by: string | null };
 
@@ -179,7 +180,7 @@ export default function EnvelopePanel({ e, envelopes, activity, loading, shared,
                 <label className="flex flex-col gap-1 text-[13px] font-bold text-slate">
                     Monthly amount
                     <span className="relative">
-                        <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">R</span>
+                        <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">{homeSymbol()}</span>
                         <input form={formId} value={monthly} onChange={(ev) => setMonthly(cleanTyped(ev.target.value))} inputMode="decimal" placeholder="0.00" className={`${field} num pl-7`} />
                     </span>
                     {errors.budgeted_amount ? <span className="text-red-ink">{errors.budgeted_amount}</span> : null}

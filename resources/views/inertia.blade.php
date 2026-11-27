@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    @include('partials.app-head')
     {{-- System appearance: pick light or dark before the first paint, so there's no flash. --}}
     <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
         (function () {

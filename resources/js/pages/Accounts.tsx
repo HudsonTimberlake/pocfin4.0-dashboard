@@ -10,6 +10,7 @@ import { cleanTyped } from '@/lib/amount';
 import { formatMoney, isNegative, toCents } from '@/lib/format';
 import { ARRIVE } from '@/lib/motion';
 import { fromCents } from '@/shared/money';
+import { CURRENCIES, currencyName, foreignSymbol, homeCurrency, homeSymbol } from '@/shared/currency';
 
 type Purpose = { id: number; name: string; value: string; gain: string };
 type Props = {
@@ -125,7 +126,7 @@ export default function Accounts(p: Props) {
                                     const on = panel === a.id;
                                     const meta =
                                         a.type === 'investment'
-                                            ? `${a.gain ? `${formatMoney(a.gain, { income: !isNegative(a.gain) })} ${isNegative(a.gain) ? 'loss' : 'gain'} · ` : ''}${a.currency === 'USD' ? 'US dollar · ' : ''}Holdings ›`
+                                            ? `${a.gain ? `${formatMoney(a.gain, { income: !isNegative(a.gain) })} ${isNegative(a.gain) ? 'loss' : 'gain'} · ` : ''}${a.currency && a.currency !== homeCurrency() ? `${currencyName(a.currency)} · ` : ''}Holdings ›`
                                             : g
                                               ? `${g.name === a.name ? 'Goal' : `${g.name} goal`} · ${goalChip(g)}`
                                               : a.visibility === 'private'
@@ -205,22 +206,23 @@ const TYPES = [
     { key: 'investment', label: 'Investment', sub: 'Holdings with a value, split by purpose' },
 ] as const;
 
-/** New account: name, Savings / Holding / Investment, Rand or US dollar with the rate, shared or only me. */
+/** New account: name, Savings / Holding / Investment (in the budget's currency or another, with the rate), shared or only me. */
 function NewAccount({ budgetName, onClose }: { budgetName: string; onClose: () => void }) {
     const [name, setName] = useState('');
     const [type, setType] = useState<(typeof TYPES)[number]['key']>('savings');
-    const [usd, setUsd] = useState(false);
+    // The account's currency: the budget's own, or another for an investment (design/currencies.md).
+    const [code, setCode] = useState(homeCurrency());
     const [rate, setRate] = useState('');
     const [priv, setPriv] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [busy, setBusy] = useState(false);
-    const dollars = type === 'investment' && usd;
+    const foreign = type === 'investment' && code !== homeCurrency() ? code : undefined;
 
     function create(e: FormEvent) {
         e.preventDefault();
         if (!name.trim() || busy) return;
         setBusy(true);
-        router.post('/accounts', { name: name.trim(), type, visibility: priv ? 'private' : 'shared', ...(dollars ? { currency: 'USD', usd_rate: rate } : {}) }, {
+        router.post('/accounts', { name: name.trim(), type, visibility: priv ? 'private' : 'shared', ...(foreign ? { currency: foreign, rate } : {}) }, {
             preserveScroll: true,
             onError: (er) => setErrors(er as Record<string, string>),
             onFinish: () => setBusy(false),
@@ -254,19 +256,20 @@ function NewAccount({ budgetName, onClose }: { budgetName: string; onClose: () =
             {type === 'investment' ? (
                 <div className="flex flex-col gap-2 text-[13px] font-bold text-slate">
                     Currency the platform shows
-                    <div role="radiogroup" aria-label="Currency" className="grid grid-cols-2 gap-1 rounded-xl bg-segment p-1">
-                        {[false, true].map((v) => (
-                            <button key={String(v)} type="button" role="radio" aria-checked={usd === v} onClick={() => setUsd(v)} className={`h-9 rounded-[10px] text-[14px] font-extrabold ${usd === v ? 'bg-card text-ink' : 'text-slate'}`}>
-                                {v ? 'US dollar' : 'Rand'}
-                            </button>
+                    <select value={code} onChange={(e) => setCode(e.target.value)} aria-label="Currency" className="h-11 rounded-xl border border-line bg-card px-3 text-[15px] font-bold text-ink outline-none focus:border-mint">
+                        <option value={homeCurrency()}>{currencyName(homeCurrency())}, the budget’s</option>
+                        {CURRENCIES.filter((c) => c.code !== homeCurrency()).map((c) => (
+                            <option key={c.code} value={c.code}>
+                                {c.name} ({foreignSymbol(c.code)})
+                            </option>
                         ))}
-                    </div>
-                    {usd ? (
+                    </select>
+                    {foreign ? (
                         <label className="flex flex-col gap-1">
-                            Rand for $1
-                            <input value={rate} onChange={(e) => setRate(cleanTyped(e.target.value).replace(/(\.\d{4}).*/, '$1'))} inputMode="decimal" placeholder="18.25" className="num h-11 rounded-xl border border-line bg-card px-3 text-[15px] font-bold text-ink outline-none focus:border-mint" />
-                            <span className="font-semibold">You’ll type dollars, as the platform shows them. PocFin keeps rand. Set once; you can update the rate later.</span>
-                            {errors.usd_rate || errors.currency ? <span className="text-red-ink">{errors.usd_rate || errors.currency}</span> : null}
+                            {homeSymbol()} for {foreignSymbol(foreign)}1
+                            <input value={rate} onChange={(e) => setRate(cleanTyped(e.target.value).replace(/(\.\d{4}).*/, '$1'))} inputMode="decimal" placeholder="0.00" className="num h-11 rounded-xl border border-line bg-card px-3 text-[15px] font-bold text-ink outline-none focus:border-mint" />
+                            <span className="font-semibold">You’ll type {foreignSymbol(foreign)}, as the platform shows it. PocFin keeps {homeSymbol()}. Set once; you can update the rate later.</span>
+                            {errors.rate || errors.currency ? <span className="text-red-ink">{errors.rate || errors.currency}</span> : null}
                         </label>
                     ) : null}
                 </div>
@@ -283,7 +286,7 @@ function NewAccount({ budgetName, onClose }: { budgetName: string; onClose: () =
                 <span className="font-semibold">{priv ? 'Only you see it, its balance and its history. Others see “private account” on shared envelope moves.' : `Everyone in ${budgetName} can see it and use it.`}</span>
             </div>
             {errors.form ? <p role="alert" className="rounded-xl bg-red-tint px-3 py-2.5 text-[14px] font-bold text-red-ink">{errors.form}</p> : null}
-            <button type="submit" disabled={!name.trim() || busy || (dollars && !rate)} className="h-11 rounded-xl bg-mint text-[15px] font-extrabold text-on-mint transition-transform active:scale-[0.98] disabled:opacity-60">
+            <button type="submit" disabled={!name.trim() || busy || (!!foreign && !rate)} className="h-11 rounded-xl bg-mint text-[15px] font-extrabold text-on-mint transition-transform active:scale-[0.98] disabled:opacity-60">
                 {busy ? 'Creating…' : 'Create account'}
             </button>
         </form>

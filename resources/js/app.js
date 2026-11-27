@@ -118,3 +118,8 @@ document.addEventListener('submit', (event) => {
 
     startLoading(key);
 });
+
+// Installable as a desktop app from the sign-in page too: a worker that caches nothing (public/sw.js).
+if ('serviceWorker' in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+}

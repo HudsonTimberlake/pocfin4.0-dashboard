@@ -2,6 +2,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import Icon from '@/components/Icon';
+import InstallApp from '@/components/InstallApp';
 import Shell from '@/components/Shell';
 import { dayLabel } from '@/lib/format';
 import { Refused, send } from '@/lib/http';
@@ -234,6 +235,25 @@ export default function Help(p: Props) {
                         </button>
                     ))}
                 </div>
+
+                {tab === 'guides' ? (
+                    <InstallApp>
+                        {(start) => (
+                            <button type="button" onClick={start} className="flex w-full items-center gap-3 rounded-[20px] bg-card p-4 text-left transition-transform active:scale-[0.99]">
+                                <span className="flex size-12 flex-none items-center justify-center rounded-2xl bg-navy-tint text-navy-text">
+                                    <Icon name="download" size={22} />
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-[15.5px] font-extrabold">Install PocFin on this computer</span>
+                                    <span className="block text-[13px] text-slate">Its own window from your Dock, Start menu or taskbar</span>
+                                </span>
+                                <span className="text-slate">
+                                    <Icon name="chevronRight" size={16} />
+                                </span>
+                            </button>
+                        )}
+                    </InstallApp>
+                ) : null}
 
                 {tab === 'guides' ? (
                     <ul className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2">

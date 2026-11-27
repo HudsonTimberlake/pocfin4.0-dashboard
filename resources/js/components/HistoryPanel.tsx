@@ -6,6 +6,7 @@ import { useApp } from '@/lib/app';
 import { dayLabel, formatMoney, toCents } from '@/lib/format';
 import { Refused, send } from '@/lib/http';
 import type { Shared } from '@/types';
+import { homeSymbol } from '@/shared/currency';
 
 export type Tab = 'spent' | 'income' | 'moved';
 export type Named = { id: number; name: string; archived?: boolean; type?: string };
@@ -181,7 +182,7 @@ export default function HistoryPanel({ tab, row, envelopes, accounts, who, premi
             <label className="flex flex-col gap-1 text-[13px] font-bold text-slate">
                 Amount
                 <span className="relative">
-                    <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">R</span>
+                    <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">{homeSymbol()}</span>
                     <input value={amount} disabled={noteOnly || locked} onChange={(e) => setAmount(cleanTyped(e.target.value))} inputMode="decimal" className={`${field} num pl-7 font-extrabold`} />
                 </span>
                 {err('amount')}

@@ -5,6 +5,7 @@ import { cleanTyped, hasAmount, toAmount, ymd } from '@/lib/amount';
 import { useApp } from '@/lib/app';
 import { dayLabel, formatMoney, monthName, toCents } from '@/lib/format';
 import { subtractForHint } from '@/shared/money';
+import { homeSymbol } from '@/shared/currency';
 
 export type Place = { id: number; name: string; kind: 'envelope' | 'account'; deleted: boolean };
 export type Run = { id: number; due_date: string; status: 'waiting' | 'ready' | 'done' | 'skipped' | 'declined'; amount: string; attempts: number; reason: string | null; resolved_by: number | null };
@@ -96,7 +97,7 @@ export function ReadyCard({ i }: { i: Item }) {
                 <label className="flex items-center gap-2 text-[13px] font-bold text-amber-ink">
                     This time only
                     <span className="relative">
-                        <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-[14px] text-slate">R</span>
+                        <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-[14px] text-slate">{homeSymbol()}</span>
                         <input autoFocus value={typed} onChange={(e) => setTyped(cleanTyped(e.target.value))} inputMode="decimal" className="num h-10 w-[120px] rounded-xl border border-line bg-card pr-2 pl-6 text-[15px] font-bold text-ink outline-none focus:border-mint" />
                     </span>
                 </label>
@@ -463,7 +464,7 @@ export function NewAutomatic({ envelopes, accounts, onClose }: { envelopes: Choi
             <label className="flex flex-col gap-1 text-[13px] font-bold text-slate">
                 Amount
                 <span className="relative">
-                    <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">R</span>
+                    <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">{homeSymbol()}</span>
                     <input value={typed} onChange={(e) => setTyped(cleanTyped(e.target.value))} inputMode="decimal" placeholder="0.00" className={`${field} num pl-7`} />
                 </span>
                 {errors.amount ? <span className="text-red-ink">{errors.amount}</span> : null}

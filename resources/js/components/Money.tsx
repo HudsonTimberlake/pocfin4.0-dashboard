@@ -4,7 +4,7 @@ import { moneyParts, toCents } from '@/lib/format';
 import { ARRIVE, COUNT_MS } from '@/lib/motion';
 
 /**
- * An amount from the API as "R8,420" with ".50" half size and raised (design system rule). When
+ * An amount from the API as "R8,420" (in the budget's currency) with ".50" half size and raised (design system rule). When
  * the amount changes (after a save) it counts to the new value over 600 ms (W5 · 3, the app's M4);
  * with "reduce motion" it jumps. Display only: the figure always ends on the server's string.
  */
