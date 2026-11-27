@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import AddPanel from '@/components/AddPanel';
 import SearchPalette, { GO_KEYS } from '@/components/SearchPalette';
 import Icon, { type IconName } from '@/components/Icon';
+import InstallApp from '@/components/InstallApp';
 import Logo from '@/components/Logo';
 import { AppContext, type AddOpen, type Toast } from '@/lib/app';
 import { followSystem, setAppearance } from '@/lib/appearance';
@@ -163,6 +164,23 @@ function AccountMenu() {
                                 {item.label}
                             </a>
                         ))}
+                        <InstallApp>
+                            {(start) => (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setOpen(false);
+                                        start();
+                                    }}
+                                    className="flex h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[14.5px] font-bold hover:bg-canvas"
+                                >
+                                    <span className="text-slate">
+                                        <Icon name="download" size={18} />
+                                    </span>
+                                    Install desktop app
+                                </button>
+                            )}
+                        </InstallApp>
                         <form method="POST" action="/lock-now">
                             <input type="hidden" name="_token" value={csrf} />
                             <button type="submit" className="flex h-10 w-full items-center gap-3 rounded-xl px-3 text-[14.5px] font-bold text-teal hover:bg-canvas">
@@ -180,7 +198,7 @@ function AccountMenu() {
                     </motion.div>
                 ) : null}
             </AnimatePresence>
-            <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Your account: profile, Premium, invite friends, lock, sign out" className="flex w-full items-center gap-2.5 rounded-2xl px-3 py-2 text-left hover:bg-card/60">
+            <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Your account: profile, Premium, invite friends, install, lock, sign out" className="flex w-full items-center gap-2.5 rounded-2xl px-3 py-2 text-left hover:bg-card/60">
                 <span className="grid size-[34px] flex-none place-items-center rounded-full bg-navy-tint text-[13px] font-extrabold text-navy-text">{(me?.name ?? '?').charAt(0)}</span>
                 <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold">{me?.name}</span>

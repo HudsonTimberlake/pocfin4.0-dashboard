@@ -4,6 +4,10 @@ import type { ComponentType } from 'react';
 
 import type { Shared } from '@/types';
 import { setHomeCurrency } from '@/shared/currency';
+import { registerWorker } from '@/lib/install';
+
+// Installable as a desktop app: a worker that caches nothing (public/sw.js).
+registerWorker();
 
 // Version 2 pages (design/dashboard-v2.md). Each page lives in ./pages and sets its own layout,
 // so the menu and top bar stay mounted while pages swap.
