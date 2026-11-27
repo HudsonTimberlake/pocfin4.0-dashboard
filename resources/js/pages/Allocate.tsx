@@ -108,7 +108,7 @@ export default function Allocate(p: Props) {
             // Top up counts what's already staged; Add monthly amount leaves a staged envelope alone.
             if (mode === 'add' && i >= 0) continue;
             const balance = i >= 0 ? fromCents(toCents(e.balance) + toCents(next[i].amount)) : e.balance;
-            const gets = budgetedHint(mode, e.budgeted_amount, balance, remaining);
+            const gets = budgetedHint(mode, e.budgeted_amount, balance, remaining, e.allocated_this_cycle);
             if (!positive(gets)) continue;
             if (i >= 0) next[i] = { ...next[i], amount: fromCents(toCents(next[i].amount) + toCents(gets)) };
             else next.push({ key, kind: 'envelope', id: e.id, name: e.name, amount: gets });
