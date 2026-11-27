@@ -5,8 +5,9 @@ import Shell from '@/components/Shell';
 import { useApp } from '@/lib/app';
 import { Refused, send } from '@/lib/http';
 import type { Shared } from '@/types';
+import { CURRENCIES, currencyOf } from '@/shared/currency';
 
-type Budget = { id: number; name: string; cycle_start_day: number; role: 'owner' | 'member'; premium: { active: boolean; status: string; until: string | null; forever: boolean } };
+type Budget = { id: number; name: string; currency: string; cycle_start_day: number; role: 'owner' | 'member'; premium: { active: boolean; status: string; until: string | null; forever: boolean } };
 
 const ordinal = (n: number) => `${n}${n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th'}`;
 
@@ -27,8 +28,9 @@ function premiumLine(p: Budget['premium']): string {
 }
 
 /**
- * W17c Budget settings: the name and the day a month starts (owner only), Premium for this budget,
- * and deleting it. Start fresh isn't here yet: it isn't built in the app.
+ * W17c Budget settings: the name, the day a month starts and the currency (owner only; the currency
+ * only while the budget holds no money, which the API checks: design/currencies.md), Premium for
+ * this budget, and deleting it. Start fresh isn't here yet: it isn't built in the app.
  */
 export default function BudgetSettings({ budget }: { budget: Budget }) {
     const { csrf } = usePage<Shared>().props;
@@ -36,13 +38,14 @@ export default function BudgetSettings({ budget }: { budget: Budget }) {
     const owner = budget.role === 'owner';
     const [name, setName] = useState(budget.name);
     const [day, setDay] = useState(budget.cycle_start_day);
-    const [saved, setSaved] = useState({ name: budget.name, day: budget.cycle_start_day });
+    const [currency, setCurrency] = useState(budget.currency);
+    const [saved, setSaved] = useState({ name: budget.name, day: budget.cycle_start_day, currency: budget.currency });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [busy, setBusy] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [typed, setTyped] = useState('');
 
-    const changed = name.trim() !== saved.name || day !== saved.day;
+    const changed = name.trim() !== saved.name || day !== saved.day || currency !== saved.currency;
 
     async function save(e: FormEvent) {
         e.preventDefault();
@@ -50,8 +53,9 @@ export default function BudgetSettings({ budget }: { budget: Budget }) {
         setBusy(true);
         setErrors({});
         try {
-            const b = await send<Budget>(csrf, 'PATCH', '/settings', { name: name.trim(), cycle_start_day: day });
-            setSaved({ name: b.name, day: b.cycle_start_day });
+            const b = await send<Budget>(csrf, 'PATCH', '/settings', { name: name.trim(), cycle_start_day: day, ...(currency !== saved.currency ? { currency } : {}) });
+            setSaved({ name: b.name, day: b.cycle_start_day, currency: b.currency });
+            setCurrency(b.currency);
             setName(b.name);
             toast({ text: 'Saved' });
             router.reload({ only: ['budgets'] });
@@ -110,6 +114,20 @@ export default function BudgetSettings({ budget }: { budget: Budget }) {
                         </select>
                         {errors.cycle_start_day ? <span className="text-[13px] font-bold text-red">{errors.cycle_start_day}</span> : null}
                         <p className="text-[13px] leading-snug text-slate">{dayNote(day)}</p>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <label htmlFor="bcurrency" className="text-[13.5px] font-bold text-slate">
+                            Currency
+                        </label>
+                        <select id="bcurrency" value={currency} onChange={(e) => setCurrency(e.target.value)} disabled={!owner} className={field}>
+                            {CURRENCIES.map((c) => (
+                                <option key={c.code} value={c.code}>
+                                    {c.name} ({c.symbol})
+                                </option>
+                            ))}
+                        </select>
+                        {errors.currency ? <span className="text-[13px] font-bold text-red">{errors.currency}</span> : null}
+                        <p className="text-[13px] leading-snug text-slate">Every amount in {saved.name} is in {currencyOf(saved.currency).symbol}, for everyone in it. It can change only before any money is added.</p>
                     </div>
                     {errors.form ? <span className="text-[13px] font-bold text-red">{errors.form}</span> : null}
                     {owner ? (

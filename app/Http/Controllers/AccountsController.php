@@ -83,7 +83,7 @@ class AccountsController extends Controller
     /**
      * W12/W12b One investment account: "How is it doing?" Worth, gain and simple return first; the
      * holdings with the time-weighted return for the month, year to date or since start; Update
-     * values; a holding opens beside the table. A dollar account adds dollars and its rate.
+     * values; a holding opens beside the table. An account in another currency adds its own figures and its rate.
      */
     public function investment(Request $request, int $account): Response
     {
@@ -94,7 +94,7 @@ class AccountsController extends Controller
         abort_unless($selected && $selected['type'] === 'investment' && $selected['id'] === $account, 404);
 
         return Inertia::render('Investment', [
-            'account' => array_intersect_key($selected, array_flip(['id', 'name', 'visibility', 'currency', 'usd_rate', 'rate_updated_at', 'balance', 'value', 'gain', 'simple_return', 'created_by'])),
+            'account' => array_intersect_key($selected, array_flip(['id', 'name', 'visibility', 'currency', 'rate', 'rate_updated_at', 'balance', 'value', 'gain', 'simple_return', 'balance_foreign', 'value_foreign', 'gain_foreign', 'simple_return_foreign', 'created_by'])),
             'holdings' => $page['holdings'] ?? [],
             'returns' => (object) ($page['returns'] ?? []),
             'valuations' => (object) ($page['valuations'] ?? []),
@@ -217,8 +217,9 @@ class AccountsController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'type' => ['required', 'in:savings,holding,investment'],
             'visibility' => ['required', 'in:shared,private'],
-            'currency' => ['sometimes', 'in:ZAR,USD'],
-            'usd_rate' => ['nullable', 'string', 'max:20'],
+            // Any listed code; the API checks it (design/currencies.md). Another currency needs a rate.
+            'currency' => ['sometimes', 'string', 'size:3'],
+            'rate' => ['nullable', 'string', 'max:20'],
         ]);
         $created = $this->api->ok($this->api->post($this->path('accounts'), array_filter($data, fn ($v) => $v !== null)))->json();
 

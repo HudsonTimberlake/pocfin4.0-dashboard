@@ -5,15 +5,17 @@ import Money from '@/components/Money';
 import { cleanTyped, hasAmount, toAmount, ymd } from '@/lib/amount';
 import { useApp } from '@/lib/app';
 import { dayLabel, formatMoney, isNegative, toCents } from '@/lib/format';
-import { formatRate, formatUsd, randToUsd, subtractForHint, usdToRand } from '@/shared/money';
+import { homeSymbol, foreignSymbol } from '@/shared/currency';
+import { rateLine, formatUsd, randToUsd, subtractForHint, usdToRand } from '@/shared/money';
 
-export type Position = { id: number; purpose_id: number; purpose: string; value: string; value_usd: string | null };
-export type Holding = { id: number; name: string; value: string; value_usd: string | null; last_valuation: { date: string; value: string } | null; positions: Position[] };
+export type Position = { id: number; purpose_id: number; purpose: string; value: string; value_foreign: string | null };
+export type Holding = { id: number; name: string; value: string; value_foreign: string | null; last_valuation: { date: string; value: string } | null; positions: Position[] };
 export type PositionReturn = { purpose_id: number; net_contributed: string; value: string; gain: string; simple_return: string | null };
 export type Returns = { net_contributed: string; value: string; gain: string; simple_return: string | null; time_weighted_return: string | null; positions?: PositionReturn[] };
 export type Valuation = { id: number; date: string; value: string; foreign_value: string | null; deletable: boolean };
 export type Purpose = { id: number; name: string };
-export type Ccy = { usd: boolean; rate: string };
+/** An account's currency: `foreign` is its code when it isn't the budget's (then `rate` is budget currency per 1 of it). */
+export type Ccy = { foreign?: string; rate: string };
 
 const field = 'h-11 w-full rounded-xl border border-line bg-card px-3 text-[15px] font-bold text-ink outline-none focus:border-mint';
 const NEW = -1;
@@ -21,13 +23,13 @@ const NEW = -1;
 export const pct = (v: string | null) => (v === null ? '—' : `${v.startsWith('-') ? '−' : ''}${v.replace('-', '')}%`);
 export const signed = (v: string) => formatMoney(v, { income: !isNegative(v) && toCents(v) !== 0n });
 
-/** An amount field in the account's own currency ($ for a dollar account, which PocFin stores in rand). */
+/** An amount field in the account's own currency (a foreign account types its currency; PocFin stores the budget's). */
 function AmountField({ label, value, onChange, ccy, error, autoFocus, hint }: { label: string; value: string; onChange: (v: string) => void; ccy: Ccy; error?: string; autoFocus?: boolean; hint?: string }) {
     return (
         <label className="flex flex-col gap-1 text-[13px] font-bold text-slate">
             {label}
             <span className="relative">
-                <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">{ccy.usd ? '$' : 'R'}</span>
+                <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">{ccy.foreign ? foreignSymbol(ccy.foreign) : homeSymbol()}</span>
                 <input autoFocus={autoFocus} value={value} onChange={(e) => onChange(cleanTyped(e.target.value))} inputMode="decimal" placeholder="0.00" className={`${field} num pl-7`} />
             </span>
             {hint ? <span className="num font-semibold">{hint}</span> : null}
@@ -36,13 +38,13 @@ function AmountField({ label, value, onChange, ccy, error, autoFocus, hint }: { 
     );
 }
 
-const toRand = (typed: string, ccy: Ccy) => (ccy.usd ? usdToRand(toAmount(typed), ccy.rate) : toAmount(typed));
-const fromRand = (rand: string, ccy: Ccy) => (ccy.usd ? randToUsd(rand, ccy.rate) : rand).replace(/\.00$/, '');
+const toRand = (typed: string, ccy: Ccy) => (ccy.foreign ? usdToRand(toAmount(typed), ccy.rate) : toAmount(typed));
+const fromRand = (rand: string, ccy: Ccy) => (ccy.foreign ? randToUsd(rand, ccy.rate) : rand).replace(/\.00$/, '');
 
 /**
  * Add money (outside money) into, or Withdraw from, one holding and purpose. The holding's worth
  * just before goes with it, filled in from what it's worth now (the app does the same), so the
- * unit price is current. A dollar account types dollars; PocFin stores rand.
+ * unit price is current. A foreign account types its own currency; PocFin stores the budget's.
  */
 export function HoldingMoney({ accountId, kind, holdings, holdingId, purposes, ccy, onDone, plain = false }: { accountId: number; kind: 'add' | 'expense'; holdings: Holding[]; holdingId?: number; purposes: Purpose[]; ccy: Ccy; onDone: () => void; plain?: boolean }) {
     const { toast } = useApp();
@@ -77,7 +79,7 @@ export function HoldingMoney({ accountId, kind, holdings, holdingId, purposes, c
             purpose_id: pid === NEW ? null : pid,
             new_purpose: pid === NEW ? newName : null,
             amount: toRand(typed, ccy),
-            foreign_amount: ccy.usd ? toAmount(typed) : null,
+            foreign_amount: ccy.foreign ? toAmount(typed) : null,
             holding_value: toRand(worth || '0', ccy),
             date: day,
             note: note.trim() || null,
@@ -130,7 +132,7 @@ export function HoldingMoney({ accountId, kind, holdings, holdingId, purposes, c
                 ccy={ccy}
                 autoFocus={pid !== NEW}
                 error={errors.amount || errors.foreign_amount}
-                hint={ccy.usd && hasAmount(typed) ? `${formatMoney(toRand(typed, ccy))} at ${formatRate(ccy.rate)}` : kind === 'expense' && held ? `${held.purpose} holds ${ccy.usd ? formatUsd(held.value_usd ?? '0') : formatMoney(held.value)} here` : undefined}
+                hint={ccy.foreign && hasAmount(typed) ? `${formatMoney(toRand(typed, ccy))} at ${rateLine(ccy.rate, ccy.foreign)}` : kind === 'expense' && held ? `${held.purpose} holds ${ccy.foreign ? formatUsd(held.value_foreign ?? '0', ccy.foreign) : formatMoney(held.value)} here` : undefined}
             />
             <AmountField label="What the holding was worth just before" value={worth} onChange={setWorth} ccy={ccy} error={errors.holding_value} hint="From its latest value. Change it if the platform shows something else today." />
             <div className="grid grid-cols-2 gap-2">
@@ -215,7 +217,7 @@ function MovePurpose({ accountId, h, purposes, ccy, onDone }: { accountId: numbe
             </div>
             {to === NEW ? <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)} maxLength={100} placeholder="Travel" aria-label="New purpose" className={field} /> : null}
             {errors.to_purpose_id ? <span className="text-[13px] font-bold text-red-ink">{errors.to_purpose_id}</span> : null}
-            <AmountField label="How much of its value" value={typed} onChange={setTyped} ccy={ccy} autoFocus={to !== NEW} error={errors.amount} hint={held ? `${held.purpose} holds ${ccy.usd ? formatUsd(held.value_usd ?? '0') : formatMoney(held.value)} here` : undefined} />
+            <AmountField label="How much of its value" value={typed} onChange={setTyped} ccy={ccy} autoFocus={to !== NEW} error={errors.amount} hint={held ? `${held.purpose} holds ${ccy.foreign ? formatUsd(held.value_foreign ?? '0', ccy.foreign) : formatMoney(held.value)} here` : undefined} />
             <AmountField label="What the holding is worth now" value={worth} onChange={setWorth} ccy={ccy} error={errors.holding_value} />
             <div className="flex gap-2">
                 <button type="submit" disabled={!hasAmount(typed) || busy || (to === NEW && !newName.trim())} className="h-10 flex-1 rounded-xl bg-mint text-[14.5px] font-extrabold text-on-mint disabled:opacity-60">
@@ -273,7 +275,7 @@ export function HoldingPanel({ accountId, h, ret, values, purposes, ccy, onClose
                     <Money amount={h.value} />
                 </div>
                 <div className="num mt-1 text-[13.5px] text-slate">
-                    {ccy.usd && h.value_usd ? `${formatUsd(h.value_usd)} · ` : ''}
+                    {ccy.foreign && h.value_foreign ? `${formatUsd(h.value_foreign, ccy.foreign)} · ` : ''}
                     {h.last_valuation ? `Last valued ${dayLabel(h.last_valuation.date)}` : 'Not valued yet'}
                     {ret ? ` · ${signed(ret.gain)} on ${formatMoney(ret.net_contributed)}` : ''}
                 </div>
@@ -314,7 +316,7 @@ export function HoldingPanel({ accountId, h, ret, values, purposes, ccy, onClose
                                 {r ? <span className="num block text-[12.5px] text-slate">Put in {formatMoney(r.net_contributed)} · {pct(r.simple_return)}</span> : null}
                             </span>
                             <span className="text-right">
-                                <span className="num block text-[14.5px] font-extrabold">{ccy.usd && p.value_usd ? formatUsd(p.value_usd) : formatMoney(p.value)}</span>
+                                <span className="num block text-[14.5px] font-extrabold">{ccy.foreign && p.value_foreign ? formatUsd(p.value_foreign, ccy.foreign) : formatMoney(p.value)}</span>
                                 {r ? <span className={`num block text-[12.5px] font-bold ${isNegative(r.gain) ? 'text-red' : 'text-teal'}`}>{signed(r.gain)}</span> : null}
                             </span>
                         </div>
@@ -332,7 +334,7 @@ export function HoldingPanel({ accountId, h, ret, values, purposes, ccy, onClose
                     return (
                         <div key={v.id} className={`num flex items-center gap-3 py-2 text-[14px] ${i ? 'border-t border-line' : ''}`}>
                             <span className="flex-1 font-bold">{dayLabel(v.date)}</span>
-                            <span className="font-extrabold">{ccy.usd && v.foreign_value ? formatUsd(v.foreign_value) : formatMoney(v.value)}</span>
+                            <span className="font-extrabold">{ccy.foreign && v.foreign_value ? formatUsd(v.foreign_value, ccy.foreign) : formatMoney(v.value)}</span>
                             <span className={`w-[100px] text-right text-[12.5px] font-bold ${change && isNegative(change) ? 'text-red' : 'text-teal'}`}>{change ? signed(change) : ''}</span>
                         </div>
                     );

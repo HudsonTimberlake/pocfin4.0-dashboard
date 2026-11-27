@@ -11,9 +11,10 @@ import { cleanTyped, toAmount, ymd } from '@/lib/amount';
 import { useApp } from '@/lib/app';
 import { dayLabel, formatMoney, isNegative, monthName, toCents } from '@/lib/format';
 import { ARRIVE } from '@/lib/motion';
-import { formatRate, formatUsd, fromCents, randToUsd, usdToRand } from '@/shared/money';
+import { currencyName, foreignSymbol, homeSymbol } from '@/shared/currency';
+import { fromCents, randToUsd, rateLine, usdToRand } from '@/shared/money';
 
-type Account = { id: number; name: string; visibility: string; currency?: string; usd_rate?: string | null; rate_updated_at?: string | null; balance: string; value: string | null; gain: string | null; simple_return?: string | null };
+type Account = { id: number; name: string; visibility: string; currency?: string; rate?: string | null; rate_updated_at?: string | null; balance: string; value: string | null; gain: string | null; simple_return?: string | null; value_foreign?: string | null };
 type Props = {
     account: Account;
     holdings: Holding[];
@@ -28,13 +29,16 @@ type Props = {
  * W12 One investment: "How is it doing?" Worth, gain and simple return first; then holdings with
  * the time-weighted return for this month, year to date or since start. Update values turns every
  * holding's worth into a field and saves them together. A holding opens beside the table. W12b: a
- * dollar account shows dollars under rand and a rate strip whose Update rate previews the move.
+ * foreign account (any currency, design/currencies.md) shows its own figures under the budget's and
+ * a rate strip whose Update rate previews the move.
  */
 export default function Investment(p: Props) {
     const { toast } = useApp();
     const reduced = useReducedMotion();
     const a = p.account;
-    const ccy = { usd: a.currency === 'USD', rate: a.usd_rate ?? '1' };
+    // A rate means the account is in another currency than the budget's.
+    const foreign = a.rate ? a.currency : undefined;
+    const ccy = { foreign, rate: a.rate ?? '1' };
     const [openId, setOpenId] = useState<number | null>(null);
     const [money, setMoney] = useState<'add' | 'expense' | null>(null);
     const [updating, setUpdating] = useState(false);
@@ -45,7 +49,7 @@ export default function Investment(p: Props) {
     const [adding, setAdding] = useState(false);
     const [newName, setNewName] = useState('');
     const [rateEditing, setRateEditing] = useState(false);
-    const [rate, setRate] = useState(a.usd_rate ?? '');
+    const [rate, setRate] = useState(a.rate ?? '');
 
     const open = p.holdings.find((h) => h.id === openId);
     useEffect(() => {
@@ -60,7 +64,7 @@ export default function Investment(p: Props) {
     const value = a.value ?? '0.00';
     const gain = a.gain ?? '0.00';
     const lastValued = p.holdings.map((h) => h.last_valuation?.date).filter(Boolean).sort().pop();
-    const usdOf = (rand: string) => formatUsd(randToUsd(rand, ccy.rate));
+    const inForeign = (amount: string) => formatMoney(amount, { foreign });
     const periods: { key: Props['period']; label: string }[] = [
         { key: 'cycle', label: p.month ? monthName(p.month) : 'This month' },
         { key: 'ytd', label: 'Year to date' },
@@ -70,16 +74,16 @@ export default function Investment(p: Props) {
     function startUpdate() {
         setOpenId(null);
         setErrors({});
-        setDrafts(Object.fromEntries(p.holdings.map((h) => [h.id, (ccy.usd ? randToUsd(h.value, ccy.rate) : h.value).replace(/\.00$/, '')])));
+        setDrafts(Object.fromEntries(p.holdings.map((h) => [h.id, (foreign ? randToUsd(h.value, ccy.rate) : h.value).replace(/\.00$/, '')])));
         setValueDay(ymd());
         setUpdating(true);
     }
-    const changedValues = p.holdings.filter((h) => drafts[h.id] !== undefined && (ccy.usd ? usdToRand(toAmount(drafts[h.id]), ccy.rate) : toAmount(drafts[h.id])) !== h.value);
+    const changedValues = p.holdings.filter((h) => drafts[h.id] !== undefined && (foreign ? usdToRand(toAmount(drafts[h.id]), ccy.rate) : toAmount(drafts[h.id])) !== h.value);
 
     function saveValues(e: FormEvent) {
         e.preventDefault();
         if (!changedValues.length || busy) return;
-        const lines = changedValues.map((h) => ({ holding_id: h.id, value: ccy.usd ? usdToRand(toAmount(drafts[h.id]), ccy.rate) : toAmount(drafts[h.id]) }));
+        const lines = changedValues.map((h) => ({ holding_id: h.id, value: foreign ? usdToRand(toAmount(drafts[h.id]), ccy.rate) : toAmount(drafts[h.id]) }));
         setBusy(true);
         router.post(`/investments/${a.id}/values`, { date: valueDay, values: lines }, {
             preserveScroll: true,
@@ -133,7 +137,7 @@ export default function Investment(p: Props) {
         const next = Number(rate);
         if (!(next > 0) || !(now > 0)) return null;
         const change = (next / now - 1) * 100;
-        return `Every holding moves ${change >= 0 ? '+' : '−'}${Math.abs(change).toFixed(2)}% in rand, at the same dollar price`;
+        return `Every holding moves ${change >= 0 ? '+' : '−'}${Math.abs(change).toFixed(2)}% in ${homeSymbol()}, at the same ${foreign ? foreignSymbol(foreign) : ''} price`;
     })();
 
     // With a holding open beside the table, Put in and Simple step aside so names keep their room.
@@ -161,7 +165,7 @@ export default function Investment(p: Props) {
                             <HelpButton topic="investmentAccount" />
                         </div>
                         <p className="mt-0.5 text-[15px] text-slate">
-                            {ccy.usd ? 'Investment in US dollars' : 'Investment'} · {a.visibility === 'private' ? 'only me' : 'shared'} · {p.holdings.length} {p.holdings.length === 1 ? 'holding' : 'holdings'}
+                            {foreign ? `Investment · ${currencyName(foreign)}` : 'Investment'} · {a.visibility === 'private' ? 'only me' : 'shared'} · {p.holdings.length} {p.holdings.length === 1 ? 'holding' : 'holdings'}
                             {lastValued ? ` · last valued ${dayLabel(lastValued)}` : ''}
                         </p>
                     </div>
@@ -180,22 +184,22 @@ export default function Investment(p: Props) {
                 </div>
 
 
-                {ccy.usd ? (
+                {foreign ? (
                     <form onSubmit={saveRate} className="flex flex-wrap items-center gap-3 rounded-[18px] bg-navy-tint px-5 py-3 text-[14.5px] text-navy-text">
-                        <span className="font-extrabold">{formatRate(ccy.rate)} for $1</span>
+                        <span className="font-extrabold">{rateLine(ccy.rate, foreign)}</span>
                         {a.rate_updated_at ? <span>· updated {dayLabel(a.rate_updated_at.slice(0, 10))}</span> : null}
                         <span className="flex-1" />
                         {rateEditing ? (
                             <>
                                 <label className="flex items-center gap-2 font-bold">
-                                    R per $1
+                                    {homeSymbol()} per {foreignSymbol(foreign)}1
                                     <input autoFocus value={rate} onChange={(e) => setRate(cleanTyped(e.target.value).replace(/(\.\d{4}).*/, '$1'))} inputMode="decimal" className="num h-9 w-[110px] rounded-lg border border-line bg-card px-2.5 font-bold text-ink outline-none focus:border-mint" />
                                 </label>
                                 {rateMove ? <span className="num text-[13px] font-bold">{rateMove}</span> : null}
                                 <button type="submit" className="h-9 rounded-lg bg-mint px-3.5 font-extrabold text-on-mint">
                                     Save rate
                                 </button>
-                                <button type="button" onClick={() => { setRateEditing(false); setRate(a.usd_rate ?? ''); }} className="h-9 px-2 font-bold">
+                                <button type="button" onClick={() => { setRateEditing(false); setRate(a.rate ?? ''); }} className="h-9 px-2 font-bold">
                                     Cancel
                                 </button>
                             </>
@@ -215,7 +219,7 @@ export default function Investment(p: Props) {
                             <div className="mt-1 text-[44px] leading-[52px] font-extrabold tracking-[-0.04em]">
                                 <Money amount={value} />
                             </div>
-                            {ccy.usd ? <div className="num text-[15px] font-bold text-slate">{usdOf(value)} at {formatRate(ccy.rate)}</div> : null}
+                            {foreign ? <div className="num text-[15px] font-bold text-slate">{inForeign(a.value_foreign ?? randToUsd(value, ccy.rate))} at {rateLine(ccy.rate, foreign)}</div> : null}
                             <div className={`num mt-2 text-[15px] font-extrabold ${isNegative(gain) ? 'text-red' : 'text-teal'}`}>
                                 {signed(gain)} {isNegative(gain) ? 'loss' : 'gain'}
                                 {a.simple_return ? ` · ${pct(a.simple_return)} simple return` : ''}
@@ -273,7 +277,7 @@ export default function Investment(p: Props) {
                                             </span>
                                             <span className="text-right">
                                                 <span className="num block text-[15px] font-extrabold">{formatMoney(h.value)}</span>
-                                                {ccy.usd && h.value_usd ? <span className="num block text-[12.5px] text-slate">{formatUsd(h.value_usd)}</span> : null}
+                                                {foreign && h.value_foreign ? <span className="num block text-[12.5px] text-slate">{inForeign(h.value_foreign)}</span> : null}
                                             </span>
                                             <span className={`num text-right text-[14.5px] ${extra}`}>{r ? formatMoney(r.net_contributed) : '—'}</span>
                                             <span className={`num text-right text-[14.5px] font-bold ${r && isNegative(r.gain) ? 'text-red' : 'text-teal'}`}>{r ? signed(r.gain) : '—'}</span>
@@ -362,7 +366,7 @@ export default function Investment(p: Props) {
             >
                 <ol className="flex flex-col gap-2 rounded-2xl bg-canvas p-4 text-[13.5px] text-slate">
                     <li><b className="text-ink">1.</b> Open your provider’s app or statement.</li>
-                    <li><b className="text-ink">2.</b> Type what each holding is worth{ccy.usd ? ', in dollars as the platform shows it' : ''}. Leave the ones that haven’t changed.</li>
+                    <li><b className="text-ink">2.</b> Type what each holding is worth{foreign ? `, in ${foreignSymbol(foreign)} as the platform shows it` : ''}. Leave the ones that haven’t changed.</li>
                     <li><b className="text-ink">3.</b> Save. No money moves: only the value changes, and gain or loss follows.</li>
                 </ol>
                 <label className="flex flex-col gap-1 text-[13px] font-bold text-slate">
@@ -371,21 +375,21 @@ export default function Investment(p: Props) {
                 </label>
                 <div className="flex flex-col divide-y divide-line">
                     {p.holdings.map((h) => {
-                        const now = ccy.usd ? randToUsd(h.value, ccy.rate) : h.value;
+                        const now = foreign ? randToUsd(h.value, ccy.rate) : h.value;
                         const typed = drafts[h.id] ?? '';
-                        const next = typed === '' ? null : ccy.usd ? usdToRand(toAmount(typed), ccy.rate) : toAmount(typed);
+                        const next = typed === '' ? null : foreign ? usdToRand(toAmount(typed), ccy.rate) : toAmount(typed);
                         const diff = next === null ? 0n : toCents(next) - toCents(h.value);
                         return (
                             <div key={h.id} className="flex flex-col gap-1.5 py-3">
                                 <div className="flex items-baseline justify-between gap-3">
                                     <span className="truncate text-[15px] font-extrabold">{h.name}</span>
                                     <span className="num flex-none text-[12.5px] text-slate">
-                                        Now {ccy.usd ? formatUsd(now) : formatMoney(now)}
+                                        Now {foreign ? inForeign(now) : formatMoney(now)}
                                         {h.last_valuation?.date ? ` · ${dayLabel(h.last_valuation.date)}` : ''}
                                     </span>
                                 </div>
                                 <span className="relative">
-                                    <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">{ccy.usd ? '$' : 'R'}</span>
+                                    <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">{foreign ? foreignSymbol(foreign) : homeSymbol()}</span>
                                     <input value={typed} onChange={(e) => setDrafts((d) => ({ ...d, [h.id]: cleanTyped(e.target.value) }))} onFocus={(e) => e.target.select()} inputMode="decimal" aria-label={`What ${h.name} is worth`} className="num h-11 w-full rounded-xl border border-line bg-card pr-3 pl-7 text-right text-[16px] font-extrabold outline-none focus:border-mint" />
                                 </span>
                                 {diff !== 0n ? (

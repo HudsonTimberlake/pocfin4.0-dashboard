@@ -13,6 +13,7 @@ import { GOAL_PREFILL_KEY, type GoalPrefill } from '@/lib/calcGoal';
 import { randsShort } from '@/shared/calculators';
 import { nextReviewMonth, planNow, planSeries, targetInTodaysMoney } from '@/shared/goalPlan';
 import { goalChip, goalPercent, monthLabel, monthLetter, monthsFrom, perCycleHint, planOf, SHAPES, type Chip, type Goal, type GoalKind } from '@/shared/goals';
+import { homeSymbol } from '@/shared/currency';
 
 export type Place = { id: number; name: string; type?: string };
 
@@ -377,7 +378,7 @@ function Amount({ label, value, set, error }: { label: string; value: string; se
         <label className="flex flex-col gap-1 text-[13px] font-bold text-slate">
             {label}
             <span className="relative">
-                <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">R</span>
+                <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">{homeSymbol()}</span>
                 <input value={value} onChange={(e) => set(cleanTyped(e.target.value))} inputMode="decimal" placeholder="0.00" className={`${field} num pl-7`} />
             </span>
             {error ? <span className="text-red-ink">{error}</span> : null}
@@ -397,10 +398,11 @@ function MonthPick({ label, value, set, from, error, years = 5 }: { label: strin
     return <MonthPicker label={label} value={value} onChange={set} min={min} max={max} error={error} />;
 }
 
-const KINDS: { kind: GoalKind; label: string; sub: string }[] = [
-    { kind: 'target', label: 'Reach an amount by a date', sub: 'R30,000 deposit by December 2027. PocFin works out each month.' },
-    { kind: 'habit', label: 'Put away the same each month', sub: 'R2,000 a month into a unit trust, no end date.' },
-    { kind: 'yearly', label: 'A yearly amount', sub: 'R46,000 over 12 months, however it comes in.' },
+// Getters: the budget's currency symbol is only known once Shell has rendered.
+const KINDS: { kind: GoalKind; label: string; readonly sub: string }[] = [
+    { kind: 'target', label: 'Reach an amount by a date', get sub() { return `${homeSymbol()}30,000 deposit by December 2027. PocFin works out each month.`; } },
+    { kind: 'habit', label: 'Put away the same each month', get sub() { return `${homeSymbol()}2,000 a month into a unit trust, no end date.`; } },
+    { kind: 'yearly', label: 'A yearly amount', get sub() { return `${homeSymbol()}46,000 over 12 months, however it comes in.`; } },
     { kind: 'value', label: 'Grow to a value', sub: 'For investments, growth included. PocFin plans with 10% growth, 5% inflation and a 6% yearly raise.' },
 ];
 

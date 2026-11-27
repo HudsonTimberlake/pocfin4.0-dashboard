@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
@@ -30,7 +31,7 @@ class BudgetAreaTest extends TestCase
 
         $this->signedIn()->get('/notes')->assertInertia(fn (AssertableInertia $p) => $p->component('Notes')->where('notes.0.body', 'Hi')->where('cycle.start', '2026-11-01'));
         $this->get('/members')->assertInertia(fn (AssertableInertia $p) => $p->component('Members')->where('isOwner', true)->where('me', 7));
-        $this->get('/settings')->assertInertia(fn (AssertableInertia $p) => $p->component('BudgetSettings')->where('budget.name', 'Our home'));
+        $this->get('/settings')->assertInertia(fn (AssertableInertia $p) => $p->component('BudgetSettings')->where('budget.name', 'Our home')->where('budgets.0.currency', 'ZAR'));
     }
 
     public function test_a_note_is_added_changed_and_deleted_and_a_refusal_is_a_message(): void
@@ -72,5 +73,18 @@ class BudgetAreaTest extends TestCase
         $this->signedIn()->patchJson('/settings', ['name' => 'Our flat', 'cycle_start_day' => 25])->assertOk()->assertJsonPath('cycle_start_day', 25);
         $this->patchJson('/settings', ['cycle_start_day' => 31])->assertUnprocessable();
         $this->deleteJson('/settings')->assertOk()->assertJsonPath('to', '/');
+    }
+
+    /** design/currencies.md: the owner changes it while the budget is empty; the API says no after that. */
+    public function test_the_currency_goes_to_the_api_and_its_refusal_comes_back(): void
+    {
+        $this->fake(['api.test/api/dashboard/budgets/3' => Http::sequence()
+            ->push(['id' => 3, 'name' => 'Our home', 'currency' => 'EUR', 'cycle_start_day' => 1])
+            ->push(['message' => 'x', 'errors' => ['currency' => ['The currency can only change before any money is added to the budget.']]], 422)]);
+
+        $this->signedIn()->patchJson('/settings', ['currency' => 'EUR'])->assertOk()->assertJsonPath('currency', 'EUR');
+        Http::assertSent(fn (Request $r) => $r->method() === 'PATCH' && ($r->data()['currency'] ?? null) === 'EUR');
+
+        $this->patchJson('/settings', ['currency' => 'GBP'])->assertUnprocessable()->assertJsonPath('errors.currency.0', 'The currency can only change before any money is added to the budget.');
     }
 }

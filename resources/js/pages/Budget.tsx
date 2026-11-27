@@ -14,6 +14,7 @@ import { dayLabel, formatMoney, isNegative, monthName, percent, toCents } from '
 import { ARRIVE } from '@/lib/motion';
 import { fromCents } from '@/shared/money';
 import type { BudgetEnvelope, Envelope } from '@/types';
+import { homeSymbol } from '@/shared/currency';
 
 type Props = {
     summary: { cycle: { start: string; end: string } | null; left_to_spend: string; unallocated: string };
@@ -506,7 +507,7 @@ function NewEnvelopeRow({ onClose, onSaved }: { onClose: () => void; onSaved: ()
             <div className="flex flex-wrap items-center gap-2">
                 <input ref={nameRef} autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={100} placeholder="New envelope name" aria-label="Name" className={`${field} min-w-[180px] flex-[2]`} />
                 <span className="relative min-w-[130px] flex-1">
-                    <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">R</span>
+                    <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">{homeSymbol()}</span>
                     <input value={amount} onChange={(e) => setAmount(cleanTyped(e.target.value))} inputMode="decimal" placeholder="Monthly, 0.00" aria-label="Monthly amount" className={`${field} num w-full pl-7`} />
                 </span>
                 <button type="submit" disabled={!name.trim() || busy} className="h-10 rounded-xl bg-mint px-4 text-[14.5px] font-extrabold text-on-mint transition-transform active:scale-[0.97] disabled:opacity-60">

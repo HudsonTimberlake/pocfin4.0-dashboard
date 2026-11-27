@@ -1,5 +1,6 @@
 import { useId, useState, type ReactNode } from 'react';
 import { fieldNumber, randsShort } from '@/shared/calculators';
+import { homeSymbol } from '@/shared/currency';
 
 export type Unit = 'R' | '%' | 'years' | 'months' | 'age';
 
@@ -23,7 +24,7 @@ export function NumField({ label, value, onChange, unit, min = 0, max, step = 1,
             </label>
             <div className="flex items-center gap-3">
                 <div className={`flex h-11 flex-none items-center gap-1 rounded-xl border border-line bg-canvas px-3 focus-within:border-mint ${narrow ? 'w-[96px]' : 'w-[148px]'}`}>
-                    {unit === 'R' ? <span className="text-[15px] font-bold text-slate">R</span> : null}
+                    {unit === 'R' ? <span className="text-[15px] font-bold text-slate">{homeSymbol()}</span> : null}
                     <input
                         id={id}
                         inputMode="decimal"

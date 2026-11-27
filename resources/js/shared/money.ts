@@ -1,9 +1,11 @@
-// Copied from pocfin4.0-app/src/lib/money.ts (2026-11-17). Keep the two in step: the web shows the phone's figures.
+// Copied from pocfin4.0-app/src/lib/money.ts (2026-11-27). Keep the two in step: the web shows the phone's figures.
 // Money display. Amounts stay decimal strings from the API ("1234.50").
 //
 // The cents helper (toCents / fromCents / ratio) is display only (decisions §4 rule 9):
 // live hints while typing and bar / gauge widths. It never decides anything,
 // and the server's figures replace its results after saving.
+
+import { foreignSymbol, homeSymbol } from "./currency";
 
 const MINUS = "−"; // −, not a hyphen
 
@@ -49,24 +51,26 @@ function groupThousands(digits: string): string {
 export type MoneyParts = { sign: string; whole: string; cents: string };
 
 /**
- * Splits an amount for display: sign, "R8,736", ".40".
+ * Splits an amount for display: sign, "R8,736", ".40", in the budget's currency (lib/currency).
  * `income` adds a plus; only income gets one. Negatives use the minus sign.
+ * `foreign` is an account's own currency code, for its figures in that currency.
  */
 export function moneyParts(
   amount: string,
-  opts: { income?: boolean } = {},
+  opts: { income?: boolean; foreign?: string } = {},
 ): MoneyParts {
   const c = toCents(amount);
   const neg = c < 0n;
   const [whole, frac] = fromCents(neg ? -c : c).split(".");
   const sign = neg ? MINUS : opts.income && c > 0n ? "+" : "";
-  return { sign, whole: `R${groupThousands(whole)}`, cents: `.${frac}` };
+  const symbol = opts.foreign ? foreignSymbol(opts.foreign) : homeSymbol();
+  return { sign, whole: `${symbol}${groupThousands(whole)}`, cents: `.${frac}` };
 }
 
 /** "8736.4" → "R8,736.40", "-320" → "−R320.00", income "32000" → "+R32,000.00". */
 export function formatMoney(
   amount: string,
-  opts: { income?: boolean } = {},
+  opts: { income?: boolean; foreign?: string } = {},
 ): string {
   const { sign, whole, cents } = moneyParts(amount, opts);
   return `${sign}${whole}${cents}`;
@@ -101,20 +105,25 @@ export function subtractForHint(a: string, b: string): string {
   return fromCents(toCents(a) - toCents(b));
 }
 
-/** "R47,000.00 put in, R5,400.00 gain" or "…, R1,200.00 loss". No signs: the word says which. */
+/**
+ * "R47,000.00 put in, R5,400.00 gain" or "…, R1,200.00 loss". No signs: the word says which.
+ * `foreign`: the account's currency code, when the figures are in it.
+ */
 export function putInAndGain(
   putIn: string,
   gain: string,
-  usd?: boolean,
+  foreign?: string,
 ): string {
   const loss = gain.startsWith("-");
-  const f = usd ? formatUsd : formatMoney;
+  const f = (a: string) => formatMoney(a, { foreign });
   return `${f(putIn)} put in, ${f(gain.replace(/^-/, ""))} ${loss ? "loss" : "gain"}`;
 }
 
-// Dollar accounts (2026-11-15). The user types dollars as their provider shows them; the phone
-// turns them into rand at the account's rate, and the server stores the rand. Display-only
-// arithmetic in BigInt, like the rest of this file: the server's figures replace it after saving.
+// Accounts in another currency (dollar accounts 2026-11-15, any currency 2026-11-27). The user
+// types the account's currency as their provider shows it; the phone turns it into the budget's
+// currency at the account's rate (budget currency per 1), and the server stores that. In names
+// here "usd" is the account's currency and "rand" the budget's. Display-only arithmetic in
+// BigInt, like the rest of this file: the server's figures replace it after saving.
 
 /** "18.2" → 182000n (rate in 1/10000ths). */
 function rateUnits(rate: string): bigint {
@@ -138,16 +147,26 @@ export function randToUsd(rand: string, rate: string): string {
   return fromCents((toCents(rand || "0") * 10000n + r / 2n) / r);
 }
 
-/** "$1,234.50". */
-export function formatUsd(usd: string): string {
-  return formatMoney(usd).replace("R", "$");
+/** "$1,234.50": an amount in an account's own currency. */
+export function formatUsd(amount: string, code: string): string {
+  return formatMoney(amount, { foreign: code });
 }
 
-/** "R18.20": a rate for display, at least two decimals, more only when it has them. */
-export function formatRate(rate: string): string {
+/** "18.20": a rate as typed, at least two decimals, more only when it has them. */
+export function rateNumber(rate: string): string {
   const [whole = "0", frac = ""] = rate.split(".");
   const trimmed = frac.replace(/0+$/, "").padEnd(2, "0");
-  return `R${whole}.${trimmed}`;
+  return `${whole}.${trimmed}`;
+}
+
+/** "R18.20": a rate for display, in the budget's currency. */
+export function formatRate(rate: string): string {
+  return `${homeSymbol()}${rateNumber(rate)}`;
+}
+
+/** "R18.20 per $1": the rate with the account's currency named. */
+export function rateLine(rate: string, code: string): string {
+  return `${formatRate(rate)} per ${foreignSymbol(code)}1`;
 }
 
 /** A rand amount as the keypad would have typed it: "1820.00" → "1820", "1820.50" → "1820.50". */

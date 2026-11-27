@@ -11,6 +11,7 @@ import { formatMoney, toCents } from '@/lib/format';
 import { ARRIVE } from '@/lib/motion';
 import { fromCents } from '@/shared/money';
 import type { Envelope } from '@/types';
+import { homeSymbol } from '@/shared/currency';
 
 type Kind = 'everyday' | 'saving_up';
 type Plan = { id: number; name: string; amounts: Record<string, string> };
@@ -210,7 +211,7 @@ export default function EditEnvelopes(p: Props) {
                         Monthly income
                         {p.can_change_income ? (
                             <span className="relative">
-                                <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">R</span>
+                                <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">{homeSymbol()}</span>
                                 <input value={income} onChange={(e) => { setIncome(cleanTyped(e.target.value)); setSaved(false); }} inputMode="decimal" placeholder="0.00" className={`${field} num h-11 pl-7 text-[17px]`} />
                             </span>
                         ) : (
@@ -337,7 +338,7 @@ export default function EditEnvelopes(p: Props) {
                                         </div>
                                         <div className="flex flex-col gap-1">
                                             <span className="relative">
-                                                <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">R</span>
+                                                <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">{homeSymbol()}</span>
                                                 <input
                                                     value={r.amount}
                                                     onChange={(e) => edit(r.key, { amount: cleanTyped(e.target.value) })}

@@ -10,6 +10,7 @@ import { followSystem, setAppearance } from '@/lib/appearance';
 import { MOD } from '@/lib/keys';
 import { ARRIVE } from '@/lib/motion';
 import type { Appearance, Shared } from '@/types';
+import { setHomeCurrency } from '@/shared/currency';
 
 type Item = { key: string; label: string; href: string; icon: IconName; spa?: boolean; badge?: number };
 
@@ -334,6 +335,8 @@ function AddButton({ onClick }: { onClick: () => void }) {
  */
 export default function Shell({ active, title, children }: { active: string; title: string; children: ReactNode }) {
     const { url, props } = usePage<Shared>();
+    // Set while rendering, before the page and the Add panel below it format any amount.
+    setHomeCurrency(props.budgets.find((b) => b.id === props.budgetId)?.currency);
     const reduced = useReducedMotion();
     const [menu, setMenu] = useState(false);
     const [search, setSearch] = useState(false);

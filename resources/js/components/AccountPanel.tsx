@@ -8,6 +8,7 @@ import { cleanTyped, hasAmount, toAmount, ymd } from '@/lib/amount';
 import { useApp } from '@/lib/app';
 import { dayLabel, formatMoney, monthName, percent } from '@/lib/format';
 import { ARRIVE } from '@/lib/motion';
+import { homeSymbol } from '@/shared/currency';
 
 export type Account = { id: number; name: string; type: 'savings' | 'holding' | 'investment'; visibility: 'shared' | 'private'; currency?: string; balance: string; value: string | null; gain: string | null; mine: boolean };
 export type Goal = { id: number; name: string; account_id: number; kind: string; state: string | null; target_amount: string | null; total: string | null; this_cycle: { needed: string; in: string; left: string; status: string } | null };
@@ -170,7 +171,7 @@ export default function AccountPanel({ a, goal, moves, budgetName, shared, onClo
                             <p className="text-[13px] font-bold text-slate">{form === 'add' ? 'Outside money (interest, a gift). It never counts as income.' : 'It leaves PocFin, like spending.'}</p>
                             <div className="grid grid-cols-2 gap-2">
                                 <span className="relative">
-                                    <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">R</span>
+                                    <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] font-bold text-slate">{homeSymbol()}</span>
                                     <input autoFocus value={typed} onChange={(e) => setTyped(cleanTyped(e.target.value))} inputMode="decimal" placeholder="0.00" aria-label="Amount" className={`${field} num pl-7`} />
                                 </span>
                                 <input type="date" value={day} max={ymd()} onChange={(e) => e.target.value && setDay(e.target.value)} aria-label="Date" className={field} />

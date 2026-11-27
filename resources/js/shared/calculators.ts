@@ -1,4 +1,5 @@
-// Copied from pocfin4.0-app/src/lib/calculators.ts (2026-11-17). Keep the two in step.
+// Copied from pocfin4.0-app/src/lib/calculators.ts (2026-11-17, currency symbol 2026-11-27). Keep the two in step.
+import { homeSymbol } from "./currency";
 // The calculators' maths (K3–K8). These are estimates that are never booked, so unlike the rest of
 // the app they use JS numbers and run on the phone (owner's decision, 2026-11-07). Results are
 // rounded to whole rands for display. Growth compounds monthly; monthly amounts are paid at the end
@@ -556,10 +557,10 @@ export function withDefaults<T extends Record<string, unknown>>(
 
 const group = (whole: string) => whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
-/** Whole rands: R1,580. Negative as −R1,580. */
+/** Whole amounts in the budget's currency: R1,580. Negative as −R1,580. */
 export function rands(n: number): string {
   const v = Math.round(n);
-  return `${v < 0 ? "−" : ""}R${group(String(Math.abs(v)))}`;
+  return `${v < 0 ? "−" : ""}${homeSymbol()}${group(String(Math.abs(v)))}`;
 }
 
 /** Big amounts short: R6.05m, R12.4m, R950,000 under a million. */
@@ -568,7 +569,7 @@ export function randsShort(n: number): string {
   if (v < 1_000_000) return rands(n);
   const m = v / 1_000_000;
   const text = m >= 10 ? m.toFixed(1) : m.toFixed(2);
-  return `${n < 0 ? "−" : ""}R${text.replace(/\.?0+$/, "")}m`;
+  return `${n < 0 ? "−" : ""}${homeSymbol()}${text.replace(/\.?0+$/, "")}m`;
 }
 
 /** 41 months → "3 years 5 months"; 0 → "0 months". */
